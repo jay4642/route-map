@@ -215,6 +215,7 @@ def ext_radar(img, valid, p, ctx):
     strength = np.clip(a_lo + (val - dbz[0]) / 30.0 * (a_hi - a_lo), a_lo, a_hi)
     cov = cv2.GaussianBlur(mask.astype(np.float32), (0, 0), 1.1)
     a = np.clip(cov * strength, 0, 1) * (valid > 0)
+    ctx["aux"]["radar_dbz"] = (val * (mask > 0)).astype(np.float32)
     return np.dstack([np.clip(col, 0, 255).astype(np.uint8), (a * 255).astype(np.uint8)])
 
 
@@ -258,6 +259,8 @@ def ext_jet(img, valid, p, ctx):
         w = cv2.GaussianBlur(m.astype(np.float32), (0, 0), 3)          # 마스크 안에서만 부드럽게
         tmap = cv2.GaussianBlur(tmap, (0, 0), 3) / np.maximum(w, 1e-3)
         cl = np.clip(palette_at(pal, tmap), 0, 255).astype(np.uint8)
+        spd = p.get("palette_kmh", [100, 110, 120, 130, 140])
+        ctx["aux"]["jet_kmh"] = (np.interp(tmap, np.arange(len(spd)), spd) * m).astype(np.float32)
     return np.dstack([cl, (a * 255).astype(np.uint8)])
 
 
@@ -285,7 +288,12 @@ def ext_track(img, valid, p, ctx):
         k = np.ones(w) / w
         sm = np.stack([np.convolve(np.pad(pts[:, i], w // 2, mode="edge"), k, "valid") for i in (0, 1)], 1)
         pts = np.vstack([pts[:1], sm[1:-1], pts[-1:]])
-    ends = p.get("endpoints")                   # [[위도, 경도], [위도, 경도]] 출발·도착 공항
+    airports = p.get("airports", [])            # [["ICN", 위도, 경도], ...] 첫 번째가 출발
+    if airports:
+        dep = np.array(F.from_lonlat(airports[0][2], airports[0][1]))
+        if np.linalg.norm(pts[0] - dep) > np.linalg.norm(pts[-1] - dep):
+            pts = pts[::-1]
+    ends = p.get("endpoints")                   # [[위도, 경도], [위도, 경도]] 선을 공항까지 잇기
     if ends:
         e = np.array([F.from_lonlat(lo, la) for la, lo in ends])
         if np.linalg.norm(pts[0] - e[0]) > np.linalg.norm(pts[0] - e[1]):
@@ -300,11 +308,24 @@ def ext_track(img, valid, p, ctx):
            f'<path d="{d}" fill="none" stroke="{color}" stroke-linejoin="round" stroke-linecap="round" '
            f'style="stroke-width:calc({width}px / var(--s,1))"/>')
 
+    aps = [(code, *F.from_lonlat(lon, lat)) for code, lat, lon in airports]
+    for code, x, y in aps:
+        svg += (f'<g style="transform:translate({x:.1f}px,{y:.1f}px) scale(calc(1 / var(--s,1)))">'
+                f'<circle r="4.5" fill="#fff" stroke="{color}" stroke-width="2.4"/>'
+                f'<text x="7" y="-6" font-size="12" font-weight="700" fill="{color}" stroke="#fff" stroke-width="3" '
+                f'paint-order="stroke" style="font-family:inherit">{H.escape(code)}</text></g>')
+
     def draw(canvas):
         q = np.round(pts * 16).astype(np.int32).reshape(-1, 1, 2)
         cv2.polylines(canvas, [q], False, (255, 255, 255), int(round(width + 2.4)), cv2.LINE_AA, 4)
         cv2.polylines(canvas, [q], False, hex_bgr(color), int(round(width)), cv2.LINE_AA, 4)
-    return {"svg": svg, "draw": draw}
+        for code, x, y in aps:
+            c = (int(round(x)), int(round(y)))
+            cv2.circle(canvas, c, 5, (255, 255, 255), -1, cv2.LINE_AA)
+            cv2.circle(canvas, c, 5, hex_bgr(color), 2, cv2.LINE_AA)
+            cv2.putText(canvas, code, (c[0] + 7, c[1] - 6), cv2.FONT_HERSHEY_DUPLEX, 0.45, (255, 255, 255), 3, cv2.LINE_AA)
+            cv2.putText(canvas, code, (c[0] + 7, c[1] - 6), cv2.FONT_HERSHEY_DUPLEX, 0.45, hex_bgr(color), 1, cv2.LINE_AA)
+    return {"svg": svg, "draw": draw, "pts": pts, "color": color}
 
 
 def ext_sigmet(img, valid, p, ctx):
@@ -349,7 +370,7 @@ def ext_sigmet(img, valid, p, ctx):
         parts.append(f'<polygon points="{pts}" fill="{fill}" fill-opacity=".2" stroke="{stroke}" '
                      f'stroke-linejoin="round" style="stroke-width:calc(1.8px / var(--s,1))"/>')
         if show(room, text):
-            parts.append(f'<text x="{lx:.1f}" y="{ly:.1f}" text-anchor="middle" dominant-baseline="central" '
+            parts.append(f'<text x="{lx:.1f}" y="{ly:.1f}" data-r="{room:.0f}" data-n="{len(text)}" text-anchor="middle" dominant-baseline="central" '
                          f'fill="{stroke}" font-weight="600" stroke="#fff" stroke-opacity=".8" paint-order="stroke" '
                          f'style="font-family:inherit;font-size:calc({p.get("screen_font", 12)}px / var(--s,1));'
                          f'stroke-width:calc(3px / var(--s,1))">{H.escape(text)}</text>')
@@ -367,7 +388,7 @@ def ext_sigmet(img, valid, p, ctx):
                 org = (int(lx - tw / 2), int(ly + th / 2))
                 cv2.putText(canvas, text, org, cv2.FONT_HERSHEY_DUPLEX, sc, (255, 255, 255), 3, cv2.LINE_AA)
                 cv2.putText(canvas, text, org, cv2.FONT_HERSHEY_DUPLEX, sc, hex_bgr(stroke), 1, cv2.LINE_AA)
-    return {"svg": "".join(parts), "draw": draw}
+    return {"svg": "".join(parts), "draw": draw, "polys": [(uv, text) for uv, _, _, _, text in polys]}
 
 
 EXTRACTORS = {
@@ -410,7 +431,107 @@ def webp_b64(bgra, q):
     return base64.b64encode(buf.tobytes()).decode()
 
 
-def layer_block(L):
+# ---------------------------------------------------------------- 항로 영향 구간
+
+def _lonlat(F, u, v):
+    lon = (F.LON0 + u / F.K) / D
+    lat = (2 * np.arctan(np.exp(F.Y0 - v / F.K)) - math.pi / 2) / D
+    return (lon + 180) % 360 - 180, lat
+
+
+def _gc_nm(lo1, la1, lo2, la2):
+    p1, p2, dl = la1 * D, la2 * D, (lo2 - lo1) * D
+    c = np.sin(p1) * np.sin(p2) + np.cos(p1) * np.cos(p2) * np.cos(dl)
+    return np.arccos(np.clip(c, -1, 1)) * 3440.065
+
+
+def _fmt_ll(lo, la):
+    return f"{abs(la):.1f}°{'N' if la >= 0 else 'S'} {abs(lo):.1f}°{'E' if lo >= 0 else 'W'}"
+
+
+def impact_html(F, layers, aux, cfg):
+    """항적이 SIGMET·제트기류·강한 레이더 에코를 지나는 구간을 찾아 패널용 HTML 로 만든다."""
+    tr = next((l for l in layers.values() if isinstance(l, dict) and "pts" in l), None)
+    if tr is None:
+        return ""
+    P = tr["pts"]
+    seg = np.diff(P, axis=0)
+    n = np.maximum(1, np.ceil(np.linalg.norm(seg, axis=1) / 2).astype(int))
+    pts = np.vstack([P[i] + seg[i] * (np.arange(n[i])[:, None] / n[i]) for i in range(len(seg))] + [P[-1:]])
+    lon, lat = _lonlat(F, pts[:, 0], pts[:, 1])
+    cum = np.concatenate([[0], np.cumsum(_gc_nm(lon[:-1], lat[:-1], lon[1:], lat[1:]))])
+    xi = np.clip(np.round(pts[:, 0]).astype(int), 0, F.W - 1)
+    yi = np.clip(np.round(pts[:, 1]).astype(int), 0, F.H - 1)
+    ic = cfg.get("impact", {})
+    hazards = []                                   # (이름, 색, bool 배열, 값 배열, 값 형식)
+    for l in layers.values():
+        if isinstance(l, dict) and "polys" in l:
+            for uv, text in l["polys"]:
+                c = uv.astype(np.float32).reshape(-1, 1, 2)
+                inside = np.array([cv2.pointPolygonTest(c, (float(x), float(y)), False) >= 0 for x, y in pts])
+                if inside.any():
+                    hazards.append((f"SIGMET {text or ''}".strip(), "#8B1A1A", inside, None, None))
+    if "jet_kmh" in aux:
+        v = aux["jet_kmh"][yi, xi]
+        hazards.append(("제트기류", "#901B4D", v >= ic.get("jet_kmh", 100), v,
+                        lambda x: f"최대 약 {x:.0f} km/h({x / 1.852:.0f} kt)"))
+    if "radar_dbz" in aux:
+        v = aux["radar_dbz"][yi, xi]
+        hazards.append(("레이더 에코", "#5CBE4B", v >= ic.get("radar_dbz", 30), v,
+                        lambda x: f"최대 약 {x:.0f} dBZ"))
+    rows = []
+    for name, color, on, val, fmt in hazards:
+        edges = np.flatnonzero(np.diff(np.concatenate([[0], on.astype(int), [0]])))
+        runs = []
+        for a, b in zip(edges[::2], edges[1::2] - 1):  # 짧은 끊김(gap_nm 이하)은 한 구간으로
+            if runs and cum[a] - cum[runs[-1][1]] <= ic.get("gap_nm", 60):
+                runs[-1][1] = b
+            else:
+                runs.append([a, b])
+        for a, b in runs:
+            length = cum[b] - cum[a]
+            if length < ic.get("min_nm", 15):
+                continue
+            extra = fmt(float(val[a:b + 1].max())) if fmt else ""
+            box = pts[a:b + 1]
+            rows.append((cum[a], name, color, cum[b], length, (lon[a], lat[a]), (lon[b], lat[b]), extra, box))
+    rows.sort(key=lambda r: r[0])
+    if not rows:
+        body = '<p class="imp-none">항적이 지나는 구간에서 표시된 위험 기상과 겹치는 곳이 없습니다.</p>'
+    else:
+        li = []
+        for start, name, color, end, length, p0, p1, extra, box in rows:
+            d = " ".join(f"{x:.0f},{y:.0f}" for x, y in box[::3])
+            li.append(f'<li><button type="button" data-pts="{d}"><span class="dot" style="background:{color}"></span>'
+                      f'<span class="it"><b>{H.escape(name)}</b> · 출발 후 {start:,.0f}–{end:,.0f} NM '
+                      f'<span class="len">({length:,.0f} NM)</span>'
+                      f'{"<br>" + extra if extra else ""}<br><small>{_fmt_ll(*p0)} → {_fmt_ll(*p1)}</small></span></button></li>')
+        body = '<ul class="imp">' + "".join(li[:5]) + '</ul>'
+        if len(li) > 5:
+            body += (f'<details class="more"><summary>나머지 {len(li) - 5}개 구간 더 보기</summary>'
+                     f'<ul class="imp">{"".join(li[5:])}</ul></details>')
+    total = cum[-1]
+    return (f'<div class="impact"><h2>항로 영향 구간 <span class="tot">항적 {total:,.0f} NM</span></h2>{body}'
+            f'<p class="imp-note">항목을 누르면 지도에서 해당 구간으로 이동합니다. 자료 시각이 서로 달라 '
+            f'실제 조우 여부와는 다를 수 있습니다.</p></div>')
+
+
+def time_badge(t, ref):
+    """레이어 자료 시각(HH:MM)과 기준 시각의 차이를 배지로."""
+    if not t or not ref:
+        return ""
+    th, tm = map(int, t.split(":")); rh, rm = map(int, ref.split(":"))
+    d = (th * 60 + tm) - (rh * 60 + rm)
+    if d == 0:
+        return '<span class="tb tb-ref">기준</span>'
+    sign = "+" if d > 0 else "−"
+    a = abs(d)
+    txt = f"{sign}{a // 60}h{a % 60:02d}m" if a >= 60 else f"{sign}{a}m"
+    cls = "tb-ok" if a <= 30 else "tb-mid" if a <= 120 else "tb-far"
+    return f'<span class="tb {cls}" title="항적 기준 시각 대비 자료 시각 차이">{txt}</span>'
+
+
+def layer_block(L, ref=None):
     lid = L["id"]
     scale = ""
     if L.get("scale"):
@@ -419,12 +540,18 @@ def layer_block(L):
             spans += (f'<span style="background:transparent;color:var(--muted);text-shadow:none;flex:1.4">'
                       f'{H.escape(L["scale_unit"])}</span>')
         scale = f'\n      <div class="scale">{spans}</div>'
+        if L.get("scale2"):
+            s2 = "".join(f'<span>{H.escape(str(t))}</span>' for t in L["scale2"])
+            if L.get("scale2_unit"):
+                s2 += f'<span style="flex:1.4">{H.escape(L["scale2_unit"])}</span>'
+            scale += f'\n      <div class="scale scale2">{s2}</div>'
     op = "" if L.get("no_opacity") else (
         f'\n      <div class="op">투명도<input type="range" min="0" max="100" value="100" data-for="img-{lid}" '
         f'aria-label="{H.escape(L["label"])} 불투명도"></div>')
     meta = f'\n      <div class="meta">{L["meta"]}</div>' if L.get("meta") else ""
     return (f'    <div class="layer"><div class="row"><input type="checkbox" id="t-{lid}" checked>'
-            f'<span class="swatch" style="background:{L["swatch"]}"></span><label for="t-{lid}">{H.escape(L["label"])}</label></div>'
+            f'<span class="swatch" style="background:{L["swatch"]}"></span><label for="t-{lid}">{H.escape(L["label"])}</label>'
+            f'{time_badge(L.get("time"), ref)}</div>'
             f'{meta}{scale}{op}</div>\n')
 
 
@@ -446,11 +573,11 @@ def main(cfg_path):
     F = Frame(cfg["frame"])
     print(f"출력 좌표계 {F.W}x{F.H}px")
 
-    layers = {}
+    layers, aux = {}, {}
     for s in cfg["sources"]:
         img, alpha, valid = load_source(s)
         g = F.identity() if s["georef"] == "frame" else s["georef"]
-        ctx = {"F": F, "g": g, "alpha": alpha}
+        ctx = {"F": F, "g": g, "alpha": alpha, "aux": {}}
         for lay in s["layers"]:
             res = EXTRACTORS[lay["kind"]](img, valid, lay, ctx)
             if isinstance(res, dict):
@@ -459,6 +586,8 @@ def main(cfg_path):
                 interp = cv2.INTER_NEAREST if s["georef"] == "frame" else cv2.INTER_CUBIC
                 layers[lay["id"]] = F.warp(res, g, interp)
             print(f"  {lay['id']:<8} <- {s['file']} ({lay['kind']})")
+        for k, v in ctx["aux"].items():
+            aux[k] = F.warp(v, g, cv2.INTER_NEAREST if s["georef"] == "frame" else cv2.INTER_LINEAR)
     if "grid" not in layers:
         layers["grid"] = grid_layer(F)
 
@@ -516,9 +645,10 @@ def main(cfg_path):
         page = (tpl.replace("{{TITLE}}", H.escape(cfg["title"]))
                    .replace("{{H1}}", H.escape(cfg["h1"]))
                    .replace("{{SUB}}", H.escape(cfg["sub"]))
-                   .replace("{{PANEL}}", "".join(layer_block(L) for L in cfg["panel"]))
+                   .replace("{{PANEL}}", "".join(layer_block(L, cfg.get("ref_time")) for L in cfg["panel"]))
                    .replace("{{NOTES}}", notes))
-    page = (page.replace("{{MAP_BG}}", bg)
+    page = (page.replace("{{IMPACT}}", impact_html(F, layers, aux, cfg))
+                .replace("{{MAP_BG}}", bg)
                 .replace("{{IMGS}}", "\n".join(elems))
                 .replace("{{W}}", str(F.W)).replace("{{H}}", str(F.H))
                 .replace("{{K}}", repr(float(F.K))).replace("{{LON0}}", repr(float(F.lon0)))

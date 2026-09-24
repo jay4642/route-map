@@ -13,6 +13,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 try:
@@ -47,7 +48,7 @@ NAV_TEMPLATE = """
     '</style><nav aria-label="회차 이동"><a href="../../">목록</a><span data-k="prev">이전 회차</span><span data-k="next">다음 회차</span></nav>';
   function link(k,e){{
     var old=root.querySelector('[data-k="'+k+'"]'); if(!e||!old) return;
-    var a=document.createElement('a'); a.href='../'+encodeURIComponent(e.id)+'/'; a.textContent=old.textContent;
+    var a=document.createElement('a'); a.href='../'+encodeURIComponent(e.id)+'/'+(e.version?'?v='+e.version:''); a.textContent=old.textContent;
     a.title=(e.title||'')+' · '+(e.time_utc||''); old.replaceWith(a);
   }}
   fetch('../../entries.json',{{cache:'no-cache'}}).then(function(r){{return r.json();}}).then(function(d){{
@@ -95,7 +96,8 @@ def save_entries(entries):
 def write_latest(entries):
     LATEST.parent.mkdir(exist_ok=True)
     if entries:
-        target = f"../entries/{entries[0]['id']}/"
+        v = entries[0].get("version")
+        target = f"../entries/{entries[0]['id']}/" + (f"?v={v}" if v else "")
         body = f'<p><a href="{target}">최신 회차로 이동</a></p>'
         refresh = f'<meta http-equiv="refresh" content="0; url={target}">'
     else:
@@ -107,6 +109,15 @@ def write_latest(entries):
         f"</head>\n<body>\n{body}\n</body>\n</html>\n",
         encoding="utf-8",
     )
+
+
+LAYER_TAGS = {"track": "항적", "sigmet": "SIGMET", "radar": "레이더", "jet": "제트기류", "aurora": "오로라"}
+
+
+def layer_tags(html):
+    """지도 HTML 의 레이어 목록(label for="t-...")에서 태그를 만든다."""
+    ids = re.findall(r'<label for="t-([\w-]+)"', html)
+    return [LAYER_TAGS[i] for i in ids if i in LAYER_TAGS]
 
 
 def inject_nav(html, entry_id):
@@ -169,6 +180,7 @@ def main():
     ap.add_argument("--time", help='기준시각 UTC, 예: "2026-09-23 1330"')
     ap.add_argument("--title")
     ap.add_argument("--memo")
+    ap.add_argument("--tags", help='추가 태그(쉼표 구분), 예: "OZ222,ICN→JFK"')
     ap.add_argument("--yes", action="store_true", help="확인 질문에 모두 예")
     ap.add_argument("--no-push", action="store_true", help="git commit/push 생략")
     args = ap.parse_args()
@@ -199,6 +211,11 @@ def main():
         sys.exit("제목은 비워 둘 수 없습니다.")
 
     entries = load_entries()
+    prev = next((e for e in entries if e["id"] == entry_id), {})
+    if args.tags is None:
+        old = [t for t in prev.get("tags", []) if t not in LAYER_TAGS.values()]
+        args.tags = ask("태그 (쉼표 구분, 예: 편명·구간, 없으면 Enter)", ",".join(old))
+    extra = [t.strip() for t in args.tags.split(",") if t.strip()]
     dest = ENTRIES_DIR / entry_id
     if dest.exists() or any(e["id"] == entry_id for e in entries):
         if not yes_no(f"회차 {entry_id} 가 이미 있습니다. 덮어쓸까요?", args.yes):
@@ -241,6 +258,8 @@ def main():
         "composite": f"{base}/composite.webp",
         "thumb": f"{base}/thumb.jpg",
         "sources": sources,
+        "tags": extra + [t for t in layer_tags(html) if t not in extra],
+        "version": int(time.time()),              # 링크에 붙여 브라우저 캐시를 피한다
     })
     save_entries(entries)
     write_latest(entries)

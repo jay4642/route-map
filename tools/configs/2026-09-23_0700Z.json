@@ -125,6 +125,18 @@
        51.47,
        -0.4543
       ]
+     ],
+     "airports": [
+      [
+       "DXB",
+       25.2532,
+       55.3657
+      ],
+      [
+       "LHR",
+       51.47,
+       -0.4543
+      ]
      ]
     }
    ]
@@ -445,13 +457,15 @@
    "id": "track",
    "label": "항적 EK1(UAE1) 두바이→런던",
    "swatch": "#9B1BF0",
-   "meta": "Flightradar24 재생 · <b>11:33 UTC</b><br>DXB 04:42 UTC 출발 · LHR 도착 예정 11:32 UTC<br>아이콘·라벨에 가린 짧은 구간은 앞뒤를 이어 표시"
+   "meta": "Flightradar24 재생 · <b>11:33 UTC</b><br>DXB 04:42 UTC 출발 · LHR 도착 예정 11:32 UTC<br>아이콘·라벨에 가린 짧은 구간은 앞뒤를 이어 표시",
+   "time": "11:33"
   },
   {
    "id": "sigmet",
    "label": "SIGMET",
    "swatch": "#8B1A1A",
-   "meta": "NOAA Aviation Weather Center · <b>0700 UTC</b> · 전 고도(All)<br>TS 뇌우"
+   "meta": "NOAA Aviation Weather Center · <b>0700 UTC</b> · 전 고도(All)<br>TS 뇌우",
+   "time": "07:00"
   },
   {
    "id": "radar",
@@ -503,7 +517,8 @@
      "rgb(122,24,63)",
      56
     ]
-   ]
+   ],
+   "time": "07:00"
   },
   {
    "id": "jet",
@@ -532,7 +547,16 @@
      140
     ]
    ],
-   "scale_unit": "km/h"
+   "scale_unit": "km/h",
+   "time": "07:00",
+   "scale2": [
+    54,
+    59,
+    65,
+    70,
+    76
+   ],
+   "scale2_unit": "kt"
   },
   {
    "id": "grid",
@@ -559,5 +583,6 @@
    "text": "연구·학습용 참고 자료이며 실제 운항 판단에는 공식 브리핑 자료를 사용하세요."
   }
  ],
- "webp_quality": 92
+ "webp_quality": 92,
+ "ref_time": "11:33"
 }

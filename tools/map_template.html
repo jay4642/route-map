@@ -10,33 +10,63 @@
 <style>
 :root{
   --paper:#EEF1F4; --panel:#F7F9FA; --ink:#16283D; --muted:#5B6B7C; --rule:#C9D2DB;
-  --magenta:#A8327E; --map-bg:{{MAP_BG}};
+  --magenta:#A8327E; --map-bg:{{MAP_BG}}; --chip:#FFFFFF; --hl:#FFC400;
+  --ok:#2E7D5B; --mid:#A86A00; --far:#A8327E;
   box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
 }
 @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
-  --paper:#18222D; --panel:#1E2A36; --ink:#E4EAF0; --muted:#9AA9B8; --rule:#34485A; --magenta:#E07AB8; }}
-:root[data-theme="dark"]{ --paper:#18222D; --panel:#1E2A36; --ink:#E4EAF0; --muted:#9AA9B8; --rule:#34485A; --magenta:#E07AB8; }
+  --paper:#18222D; --panel:#1E2A36; --ink:#E4EAF0; --muted:#9AA9B8; --rule:#34485A; --magenta:#E07AB8; --chip:#243241;
+  --ok:#6FCB9F; --mid:#E8B04B; --far:#E07AB8; }}
+:root[data-theme="dark"]{ --paper:#18222D; --panel:#1E2A36; --ink:#E4EAF0; --muted:#9AA9B8; --rule:#34485A; --magenta:#E07AB8; --chip:#243241;
+  --ok:#6FCB9F; --mid:#E8B04B; --far:#E07AB8; }
 *,*::before,*::after{box-sizing:inherit}
 html,body{height:100%;margin:0}
 body{background:var(--paper);color:var(--ink);font-family:"IBM Plex Sans KR",system-ui,-apple-system,"Malgun Gothic",sans-serif;font-size:14px;line-height:1.5;font-variant-numeric:tabular-nums}
+button{font:inherit}
 .app{display:flex;height:100%}
 .map{position:relative;flex:1;overflow:hidden;background:var(--map-bg);touch-action:none;cursor:grab}
 .map.drag{cursor:grabbing}
+.map.measuring{cursor:crosshair}
 .stack{position:absolute;left:0;top:0;width:{{W}}px;height:{{H}}px;transform-origin:0 0;will-change:transform}
 .stack svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
 .stack img{position:absolute;inset:0;width:100%;height:100%;user-select:none;-webkit-user-drag:none;pointer-events:none;image-rendering:auto}
-.readout{position:absolute;left:12px;bottom:12px;background:var(--panel);color:var(--ink);border:1px solid var(--rule);border-radius:6px;padding:6px 10px;font-size:13px;min-width:190px}
+.float{position:absolute;background:var(--panel);color:var(--ink);border:1px solid var(--rule);border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.12)}
+.readout{left:12px;bottom:12px;padding:6px 10px;font-size:13px;min-width:190px;max-width:calc(100% - 24px)}
+.readout .m{display:block;color:var(--magenta);font-weight:600}
 .zoom{position:absolute;right:12px;top:12px;display:flex;flex-direction:column;gap:6px}
-.zoom button{width:36px;height:36px;border-radius:6px;border:1px solid var(--rule);background:var(--panel);color:var(--ink);font-size:18px;cursor:pointer}
-.zoom button:focus-visible,.layer input:focus-visible{outline:2px solid var(--magenta);outline-offset:2px}
-aside{width:360px;flex:none;background:var(--panel);border-left:1px solid var(--rule);overflow-y:auto;padding:20px 20px 28px}
+.zoom button{width:38px;height:38px;border-radius:8px;border:1px solid var(--rule);background:var(--panel);color:var(--ink);font-size:18px;cursor:pointer;display:grid;place-items:center;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+.zoom button[aria-pressed="true"]{background:var(--magenta);color:#fff;border-color:var(--magenta)}
+.zoom svg{width:20px;height:20px}
+.chips{position:absolute;left:12px;right:62px;bottom:56px;display:flex;flex-wrap:wrap;gap:6px;pointer-events:none}
+.chips button{pointer-events:auto}
+.chips button{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:16px;border:1px solid var(--rule);background:var(--chip);color:var(--ink);font-size:12.5px;font-weight:500;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.12);white-space:nowrap}
+.chips button .d{width:10px;height:10px;border-radius:50%}
+.chips button[aria-pressed="false"]{opacity:.55;box-shadow:none}
+.chips button[aria-pressed="false"] .d{background:transparent!important;border:1.5px solid var(--muted)}
+button:focus-visible,.layer input:focus-visible{outline:2px solid var(--magenta);outline-offset:2px}
+aside{width:370px;flex:none;background:var(--panel);border-left:1px solid var(--rule);overflow-y:auto;padding:20px 20px 28px}
+.handle{display:none}
 h1{font-size:19px;font-weight:600;line-height:1.3;margin:0 0 4px}
-.sub{color:var(--muted);margin:0 0 18px;font-size:13px}
+.sub{color:var(--muted);margin:0 0 14px;font-size:13px}
+.impact{border:1px solid var(--rule);border-radius:10px;padding:10px 12px;margin:0 0 14px;background:var(--paper)}
+.impact h2{font-size:13.5px;font-weight:600;margin:0 0 6px;display:flex;align-items:baseline;gap:8px}
+.impact .tot{margin-left:auto;font-size:12px;font-weight:500;color:var(--muted)}
+.imp{list-style:none;margin:0;padding:0}
+.imp li+li{border-top:1px dashed var(--rule)}
+.imp button{all:unset;display:flex;gap:9px;width:100%;padding:7px 2px;cursor:pointer;font-size:12.5px;line-height:1.45;border-radius:6px}
+.imp button:hover{background:var(--panel)}
+.imp button:focus-visible{outline:2px solid var(--magenta)}
+.imp .dot{width:10px;height:10px;border-radius:50%;flex:none;margin-top:4px}
+.imp .len,.imp small{color:var(--muted)}
+.more summary{cursor:pointer;font-size:12.5px;color:var(--magenta);padding:6px 2px 0}
+.imp-note,.imp-none{font-size:11.5px;color:var(--muted);margin:6px 0 0}
 .layer{border-top:1px solid var(--rule);padding:12px 0}
 .row{display:flex;align-items:center;gap:10px}
 .row label{flex:1;font-weight:500;cursor:pointer}
 .swatch{width:14px;height:14px;border-radius:3px;flex:none}
+.tb{font-size:11px;font-weight:600;padding:1px 7px;border-radius:9px;border:1px solid currentColor;white-space:nowrap}
+.tb-ref{color:var(--muted)} .tb-ok{color:var(--ok)} .tb-mid{color:var(--mid)} .tb-far{color:var(--far)}
 .meta{color:var(--muted);font-size:12.5px;margin:4px 0 0 24px}
 .meta b{color:var(--ink);font-weight:500}
 .op{display:flex;align-items:center;gap:8px;margin:8px 0 0 24px;font-size:12px;color:var(--muted)}
@@ -44,15 +74,30 @@ h1{font-size:19px;font-weight:600;line-height:1.3;margin:0 0 4px}
 .layer input[type=checkbox]{width:16px;height:16px;accent-color:var(--magenta);margin:0}
 .scale{display:flex;margin:8px 0 0 24px;border-radius:3px;overflow:hidden}
 .scale span{flex:1;font-size:10.5px;text-align:center;padding:2px 0;color:#fff;text-shadow:0 0 2px rgba(0,0,0,.6)}
+.scale2{margin-top:2px}
+.scale2 span{color:var(--muted);text-shadow:none;padding:0}
 .notes{border-top:1px solid var(--rule);margin-top:6px;padding-top:12px;font-size:12.5px;color:var(--muted)}
 .notes h2{font-size:13px;color:var(--ink);font-weight:600;margin:0 0 6px}
 .notes p{margin:0 0 8px}
 .warn{color:var(--magenta)}
+.keys{font-size:11.5px;color:var(--muted);border-top:1px solid var(--rule);padding-top:10px;margin-top:8px}
+kbd{font:inherit;font-size:11px;border:1px solid var(--rule);border-bottom-width:2px;border-radius:4px;padding:0 4px;background:var(--paper)}
 @media (max-width:800px){
-  .app{flex-direction:column}
-  .map{flex:none;height:58%}
-  aside{width:auto;border-left:0;border-top:1px solid var(--rule)}
+  :root{--peek:118px}
+  .map{height:100%}
+  aside{position:fixed;left:0;right:0;bottom:0;width:auto;height:78vh;border-left:0;border-top:1px solid var(--rule);
+    border-radius:16px 16px 0 0;box-shadow:0 -6px 24px rgba(0,0,0,.18);padding:0 16px 28px;z-index:20;
+    transform:translateY(calc(100% - var(--peek)));transition:transform .25s ease;overscroll-behavior:contain}
+  aside.open{transform:none}
+  .handle{display:flex;flex-direction:column;align-items:center;gap:4px;position:sticky;top:0;background:var(--panel);
+    width:calc(100% + 32px);margin:0 -16px 8px;padding:8px 16px 6px;border:0;color:var(--muted);font-size:12px;cursor:pointer;z-index:1}
+  .handle::before{content:"";width:40px;height:4px;border-radius:2px;background:var(--rule)}
+  .readout{bottom:calc(var(--peek) + 56px);min-width:0}
+  .chips{bottom:calc(var(--peek) + 10px);right:12px;flex-wrap:nowrap;overflow-x:auto;pointer-events:auto;padding-bottom:2px}
+  .keys{display:none}
+  .zoom{top:64px}
 }
+@media (prefers-reduced-motion:reduce){aside{transition:none}}
 </style>
 </head>
 <body>
@@ -60,61 +105,147 @@ h1{font-size:19px;font-weight:600;line-height:1.3;margin:0 0 4px}
   <div class="map" id="map" aria-label="중첩 지도 (드래그로 이동, 휠로 확대)">
     <div class="stack" id="stack">
 {{IMGS}}
+      <svg id="hl" viewBox="0 0 {{W}} {{H}}" aria-hidden="true"><polyline fill="none" stroke="var(--hl)" stroke-opacity=".9" stroke-linecap="round" stroke-linejoin="round" style="stroke-width:calc(9px / var(--s,1))" points=""/></svg>
+      <svg id="ms" viewBox="0 0 {{W}} {{H}}" aria-hidden="true"></svg>
     </div>
     <div class="zoom">
-      <button id="zin" aria-label="확대">+</button>
-      <button id="zout" aria-label="축소">−</button>
-      <button id="zfit" aria-label="전체 보기" style="font-size:13px">⤢</button>
+      <button id="zin" aria-label="확대" title="확대 (+)">+</button>
+      <button id="zout" aria-label="축소" title="축소 (−)">−</button>
+      <button id="zfit" aria-label="전체 보기" title="전체 보기 (0)" style="font-size:14px">⤢</button>
+      <button id="zmeas" aria-label="거리 측정" aria-pressed="false" title="거리·방위 측정 (M)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 17 17 3l4 4L7 21z"/><path d="m7 13 2 2M10 10l2 2M13 7l2 2"/></svg>
+      </button>
     </div>
-    <div class="readout" id="readout">커서 위치 좌표</div>
+    <div class="chips" id="chips" role="toolbar" aria-label="레이어 빠른 켜기·끄기"></div>
+    <div class="float readout" id="readout" aria-live="polite">커서 위치 좌표</div>
   </div>
-  <aside>
+  <aside id="panel">
+    <button class="handle" id="handle" type="button" aria-expanded="false" aria-controls="panel">레이어·영향 구간 보기</button>
     <h1>{{H1}}</h1>
     <p class="sub">{{SUB}}</p>
-
+    {{IMPACT}}
     {{PANEL}}
     <div class="notes">
       <h2>읽기 전에</h2>
 {{NOTES}}    </div>
+    <div class="keys">단축키: <kbd>+</kbd> <kbd>−</kbd> 확대·축소 · <kbd>0</kbd> 전체 보기 · <kbd>1</kbd>~<kbd>9</kbd> 레이어 켜기·끄기 · <kbd>M</kbd> 거리 측정 · <kbd>Esc</kbd> 측정 지우기</div>
   </aside>
 </div>
 <script>
 (function(){
-  const W={{W}},H={{H}}, K={{K}}, LON0={{LON0}}, Y0={{Y0}}, OX=0, OY=0, D=Math.PI/180;
-  const map=document.getElementById('map'), st=document.getElementById('stack'), ro=document.getElementById('readout');
-  let s=1,tx=0,ty=0,minS=0.2;
-  function apply(){st.style.transform=`translate(${tx}px,${ty}px) scale(${s})`;st.style.setProperty('--s',s);}
-  function clamp(){const mw=map.clientWidth,mh=map.clientHeight;
-    const w=W*s,h=H*s;
+  const W={{W}},H={{H}}, K={{K}}, LON0={{LON0}}, Y0={{Y0}}, D=Math.PI/180;
+  const $=id=>document.getElementById(id);
+  const map=$('map'), st=$('stack'), ro=$('readout'), ms=$('ms'), hl=$('hl').firstElementChild;
+  let s=1,tx=0,ty=0,minS=0.2, posText='커서 위치 좌표', measText='';
+  const labels=[...document.querySelectorAll('#img-sigmet text[data-r]')];
+  function apply(){st.style.transform=`translate(${tx}px,${ty}px) scale(${s})`;st.style.setProperty('--s',s);
+    // 다각형이 화면에서 글자보다 작으면 라벨을 숨긴다
+    labels.forEach(t=>{t.style.display=(t.dataset.r*2*s>=t.dataset.n*7.5)?'':'none';});}
+  function clamp(){const mw=map.clientWidth,mh=map.clientHeight,w=W*s,h=H*s;
     tx = w<=mw ? (mw-w)/2 : Math.min(0,Math.max(mw-w,tx));
     ty = h<=mh ? (mh-h)/2 : Math.min(0,Math.max(mh-h,ty));}
   function fit(){const mw=map.clientWidth,mh=map.clientHeight; s=Math.min(mw/W,mh/H); minS=s; tx=0;ty=0; clamp(); apply();}
-  function zoomAt(f,cx,cy){const ns=Math.max(minS,Math.min(3,s*f)); tx=cx-(cx-tx)*ns/s; ty=cy-(cy-ty)*ns/s; s=ns; clamp(); apply();}
+  function zoomAt(f,cx,cy){const ns=Math.max(minS,Math.min(4,s*f)); tx=cx-(cx-tx)*ns/s; ty=cy-(cy-ty)*ns/s; s=ns; clamp(); apply();}
+  function zoomTo(x0,y0,x1,y1){const mw=map.clientWidth,mh=map.clientHeight,pad=60;
+    s=Math.max(minS,Math.min(2.5,Math.min((mw-2*pad)/Math.max(x1-x0,1),(mh-2*pad)/Math.max(y1-y0,1))));
+    tx=mw/2-(x0+x1)/2*s; ty=mh/2-(y0+y1)/2*s; clamp(); apply();}
+  // 좌표 변환 (지도 픽셀 <-> 경위도)
+  const toLL=(x,y)=>{let lon=x/(K*D)+LON0; const lat=(2*Math.atan(Math.exp(Y0-y/K))-Math.PI/2)/D; return [((lon+180)%360+360)%360-180,lat];};
+  const toXY=(lon,lat)=>{let l=lon; while(l<LON0)l+=360; while(l>=LON0+360)l-=360; return [(l-LON0)*D*K,(Y0-Math.log(Math.tan(Math.PI/4+lat*D/2)))*K];};
+  const fmt=(lon,lat)=>`${Math.abs(lat).toFixed(2)}°${lat>=0?'N':'S'}  ${Math.abs(lon).toFixed(2)}°${lon>=0?'E':'W'}`;
+  function show(){ro.innerHTML=(measText?`<span class="m">${measText}</span>`:'')+posText;}
+  // 드래그·휠·핀치
   map.addEventListener('wheel',e=>{e.preventDefault();const r=map.getBoundingClientRect();zoomAt(e.deltaY<0?1.15:1/1.15,e.clientX-r.left,e.clientY-r.top);},{passive:false});
-  const pts=new Map(); let last=null, pinch=null;
-  map.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;map.setPointerCapture(e.pointerId);pts.set(e.pointerId,[e.clientX,e.clientY]);map.classList.add('drag');last=[e.clientX,e.clientY];});
+  const pts=new Map(); let last=null, pinch=null, down=null;
+  map.addEventListener('pointerdown',e=>{if(e.target.closest('button,.chips,.readout'))return;try{map.setPointerCapture(e.pointerId);}catch(_){}pts.set(e.pointerId,[e.clientX,e.clientY]);map.classList.add('drag');last=[e.clientX,e.clientY];down=[e.clientX,e.clientY];});
   map.addEventListener('pointermove',e=>{
     const r=map.getBoundingClientRect();
     const mx=(e.clientX-r.left-tx)/s, my=(e.clientY-r.top-ty)/s;
-    if(mx>=0&&mx<=W&&my>=0&&my<=H){
-      const x=mx+OX,y=my+OY; let lon=x/(K*D)+LON0; lat=(2*Math.atan(Math.exp(Y0-y/K))-Math.PI/2)/D;
-      lon=((lon+180)%360+360)%360-180;
-      ro.textContent=`${Math.abs(lat).toFixed(2)}°${lat>=0?'N':'S'}  ${Math.abs(lon).toFixed(2)}°${lon>=0?'E':'W'}`;
-    }
+    if(mx>=0&&mx<=W&&my>=0&&my<=H){posText=fmt(...toLL(mx,my)); show();}
     if(!pts.has(e.pointerId))return;
     pts.set(e.pointerId,[e.clientX,e.clientY]);
     if(pts.size===2){const [a,b]=[...pts.values()];const d=Math.hypot(a[0]-b[0],a[1]-b[1]);
-      if(pinch){zoomAt(d/pinch,(a[0]+b[0])/2-r.left,(a[1]+b[1])/2-r.top);} pinch=d; return;}
+      if(pinch){zoomAt(d/pinch,(a[0]+b[0])/2-r.left,(a[1]+b[1])/2-r.top);} pinch=d; down=null; return;}
     if(last){tx+=e.clientX-last[0];ty+=e.clientY-last[1];last=[e.clientX,e.clientY];clamp();apply();}
   });
-  function up(e){pts.delete(e.pointerId);pinch=null;last=pts.size?[...pts.values()][0]:null;if(!pts.size)map.classList.remove('drag');}
+  function up(e){
+    if(down&&pts.size===1&&Math.hypot(e.clientX-down[0],e.clientY-down[1])<5&&measuring){
+      const r=map.getBoundingClientRect(); addMeasure((e.clientX-r.left-tx)/s,(e.clientY-r.top-ty)/s);}
+    pts.delete(e.pointerId);pinch=null;last=pts.size?[...pts.values()][0]:null;if(!pts.size){map.classList.remove('drag');down=null;}}
   map.addEventListener('pointerup',up);map.addEventListener('pointercancel',up);
-  document.getElementById('zin').onclick=()=>zoomAt(1.4,map.clientWidth/2,map.clientHeight/2);
-  document.getElementById('zout').onclick=()=>zoomAt(1/1.4,map.clientWidth/2,map.clientHeight/2);
-  document.getElementById('zfit').onclick=fit;
+  $('zin').onclick=()=>zoomAt(1.4,map.clientWidth/2,map.clientHeight/2);
+  $('zout').onclick=()=>zoomAt(1/1.4,map.clientWidth/2,map.clientHeight/2);
+  $('zfit').onclick=fit;
   window.addEventListener('resize',fit);
-  document.querySelectorAll('input[type=range]').forEach(r=>r.addEventListener('input',()=>{document.getElementById(r.dataset.for).style.opacity=r.value/100;}));
-  document.querySelectorAll('.layer input[type=checkbox]').forEach(c=>c.addEventListener('change',()=>{document.getElementById('img-'+c.id.slice(2)).style.display=c.checked?'':'none';}));
+  // 레이어 켜기·끄기, 투명도, 빠른 토글 칩
+  document.querySelectorAll('input[type=range]').forEach(r=>r.addEventListener('input',()=>{$(r.dataset.for).style.opacity=r.value/100;}));
+  const boxes=[...document.querySelectorAll('.layer input[type=checkbox]')];
+  const chips=$('chips');
+  boxes.forEach((c,i)=>{
+    const SHORT={track:'항적',sigmet:'SIGMET',radar:'레이더',jet:'제트기류',aurora:'오로라',grid:'격자'};
+    const lab=SHORT[c.id.slice(2)]||document.querySelector(`label[for="${c.id}"]`).textContent.replace(/\s*\(.*$/,'');
+    const sw=c.parentElement.querySelector('.swatch').style.background;
+    const b=document.createElement('button'); b.type='button'; b.setAttribute('aria-pressed',c.checked);
+    b.title=`${lab} 켜기·끄기 (${i+1})`; b.innerHTML=`<span class="d" style="background:${sw}"></span>${lab}`;
+    b.onclick=()=>{c.checked=!c.checked;c.dispatchEvent(new Event('change'));};
+    chips.appendChild(b);
+    c.addEventListener('change',()=>{$('img-'+c.id.slice(2)).style.display=c.checked?'':'none';b.setAttribute('aria-pressed',c.checked);});
+  });
+  // 거리·방위 측정 (대권)
+  let measuring=false, mp=[];
+  const mbtn=$('zmeas');
+  function setMeasure(on){measuring=on;mbtn.setAttribute('aria-pressed',on);map.classList.toggle('measuring',on);
+    if(!on){mp=[];ms.innerHTML='';measText='';} else measText='지도에서 두 지점을 누르세요'; show();}
+  mbtn.onclick=()=>setMeasure(!measuring);
+  function addMeasure(x,y){
+    if(mp.length===2){mp=[];}
+    mp.push(toLL(x,y)); drawMeasure();
+  }
+  function drawMeasure(){
+    const dot=([lon,lat])=>{const [x,y]=toXY(lon,lat);return `<circle cx="${x}" cy="${y}" fill="#fff" stroke="var(--magenta)" style="r:calc(5px / var(--s,1));stroke-width:calc(2.5px / var(--s,1))"/>`;};
+    let h='';
+    if(mp.length===2){
+      const [[l1,p1],[l2,p2]]=mp.map(([a,b])=>[a*D,b*D]);
+      const dd=2*Math.asin(Math.sqrt(Math.sin((p2-p1)/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin((l2-l1)/2)**2));
+      const nm=dd*3440.065, brg=(Math.atan2(Math.sin(l2-l1)*Math.cos(p2),Math.cos(p1)*Math.sin(p2)-Math.sin(p1)*Math.cos(p2)*Math.cos(l2-l1))/D+360)%360;
+      // 대권 경로를 여러 점으로 나눠 메르카토르 위에 그린다
+      const v=([l,p])=>[Math.cos(p)*Math.cos(l),Math.cos(p)*Math.sin(l),Math.sin(p)];
+      const a=v([l1,p1]),b=v([l2,p2]); let path=[], prev=null;
+      for(let i=0;i<=64;i++){const t=i/64, sa=Math.sin((1-t)*dd)/Math.sin(dd||1), sb=Math.sin(t*dd)/Math.sin(dd||1);
+        const q=dd?[sa*a[0]+sb*b[0],sa*a[1]+sb*b[1],sa*a[2]+sb*b[2]]:a;
+        const lon=Math.atan2(q[1],q[0])/D, lat=Math.atan2(q[2],Math.hypot(q[0],q[1]))/D; let [x,y]=toXY(lon,lat);
+        if(prev&&Math.abs(x-prev[0])>W/2) x+= x<prev[0]?360*D*K:-360*D*K; path.push(`${x.toFixed(1)},${y.toFixed(1)}`); prev=[x,y];}
+      h+=`<polyline points="${path.join(' ')}" fill="none" stroke="var(--magenta)" stroke-dasharray="6 4" style="stroke-width:calc(2.5px / var(--s,1));stroke-dasharray:calc(8px / var(--s,1)) calc(5px / var(--s,1))"/>`;
+      measText=`대권거리 ${Math.round(nm).toLocaleString()} NM (${Math.round(nm*1.852).toLocaleString()} km) · 초기 방위 ${String(Math.round(brg)%360).padStart(3,'0')}°`;
+    } else measText='두 번째 지점을 누르세요';
+    ms.innerHTML=h+mp.map(dot).join(''); show();
+  }
+  // 영향 구간: 누르면 해당 구간으로 이동하고 강조
+  document.querySelectorAll('.imp button').forEach(b=>b.addEventListener('click',()=>{
+    const p=b.dataset.pts.split(' ').map(q=>q.split(',').map(Number));
+    hl.setAttribute('points',b.dataset.pts);
+    const xs=p.map(q=>q[0]),ys=p.map(q=>q[1]);
+    zoomTo(Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys));
+    if(matchMedia('(max-width:800px)').matches) setSheet(false);
+  }));
+  // 모바일 하단 시트
+  const panel=$('panel'), handle=$('handle');
+  function setSheet(open){panel.classList.toggle('open',open);handle.setAttribute('aria-expanded',open);
+    handle.textContent=open?'지도 크게 보기':'레이어·영향 구간 보기';}
+  handle.onclick=()=>setSheet(!panel.classList.contains('open'));
+  // 단축키
+  document.addEventListener('keydown',e=>{
+    const tg=e.target; if((tg instanceof Element&&tg.closest('input,textarea,select'))||e.metaKey||e.ctrlKey||e.altKey)return;
+    const c=map.clientWidth/2, m=map.clientHeight/2;
+    if(e.key==='+'||e.key==='=') zoomAt(1.4,c,m);
+    else if(e.key==='-'||e.key==='_') zoomAt(1/1.4,c,m);
+    else if(e.key==='0') fit();
+    else if(/^[1-9]$/.test(e.key)&&boxes[e.key-1]){const b=boxes[e.key-1]; b.checked=!b.checked; b.dispatchEvent(new Event('change'));}
+    else if(e.key==='m'||e.key==='M') setMeasure(!measuring);
+    else if(e.key==='Escape'){ if(measuring) setMeasure(false); hl.setAttribute('points',''); }
+    else return;
+    e.preventDefault();
+  });
   fit();
 })();
 </script>

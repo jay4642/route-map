@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>회차 비교</title>
+<meta name="description" content="항로 기상 중첩도 두 회차를 나란히 또는 겹쳐서 비교">
+<style>
+:root{
+  --bg:#EEF1F4; --panel:#FFFFFF; --ink:#16283D; --muted:#5B6B7C; --rule:#D3DAE1;
+  --accent:#A8327E; --accent-ink:#FFFFFF; --chip:#E4E9EE; --shadow:0 1px 2px rgba(22,40,61,.06),0 4px 14px rgba(22,40,61,.06);
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root{ --bg:#141C25; --panel:#1C2733; --ink:#E4EAF0; --muted:#9AA9B8; --rule:#2F4050;
+    --accent:#E07AB8; --accent-ink:#1A1020; --chip:#26333F; --shadow:none; color-scheme:dark; }
+}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;
+  font-size:15px;line-height:1.55;font-variant-numeric:tabular-nums}
+.wrap{max-width:1400px;margin:0 auto;padding:24px 16px 48px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 16px}
+header h1{font-size:22px;margin:0;font-weight:700}
+header a{color:var(--accent);font-size:14px}
+.bar{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:flex-end;margin:18px 0 16px;background:var(--panel);
+  border:1px solid var(--rule);border-radius:10px;padding:14px;box-shadow:var(--shadow)}
+.bar label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--muted);flex:1 1 260px}
+select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--rule);border-radius:7px;padding:7px 10px;min-height:38px;width:100%}
+.seg{display:inline-flex;border:1px solid var(--rule);border-radius:8px;overflow:hidden}
+.seg button{font:inherit;font-size:13.5px;border:0;background:transparent;color:var(--ink);padding:0 14px;min-height:38px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);font-weight:600}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.pane{background:var(--panel);border:1px solid var(--rule);border-radius:12px;overflow:hidden;box-shadow:var(--shadow)}
+.pane img{display:block;width:100%;height:auto;background:var(--chip)}
+.info{padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.info .t{color:var(--accent);font-size:13px;font-weight:600}
+.info h2{font-size:16px;margin:0}
+.info p{margin:0;color:var(--muted);font-size:13px}
+.info a{color:var(--accent);font-size:13.5px}
+.tags{display:flex;flex-wrap:wrap;gap:5px}
+.tags span{font-size:11.5px;padding:1px 8px;border-radius:12px;background:var(--chip);color:var(--muted)}
+.swipe{position:relative;background:var(--panel);border:1px solid var(--rule);border-radius:12px;overflow:hidden;box-shadow:var(--shadow);touch-action:none;user-select:none}
+.swipe img{display:block;width:100%;height:auto}
+.swipe .top{position:absolute;inset:0;clip-path:inset(0 0 0 var(--x,50%))}
+.swipe .top img{width:100%;height:100%;object-fit:fill}
+.swipe .line{position:absolute;top:0;bottom:0;left:var(--x,50%);width:2px;margin-left:-1px;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
+.swipe .knob{position:absolute;top:50%;left:var(--x,50%);width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;background:#fff;
+  box-shadow:0 2px 8px rgba(0,0,0,.3);display:grid;place-items:center;color:#16283D;font-size:14px;font-weight:700}
+.swipe .lab{position:absolute;top:10px;padding:3px 10px;border-radius:12px;background:rgba(22,40,61,.75);color:#fff;font-size:12.5px}
+.swipe .la{left:10px}.swipe .lb{right:10px}
+.hint{color:var(--muted);font-size:12.5px;margin:10px 2px 0}
+.warn{color:var(--accent);font-size:13px;margin:0 0 12px}
+@media (max-width:760px){.pair{grid-template-columns:1fr}}
+button:focus-visible,select:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1>두 회차 비교</h1><a href="./">← 목록으로</a></header>
+  <div class="bar">
+    <label>A 회차<select id="a"></select></label>
+    <label>B 회차<select id="b"></select></label>
+    <div class="seg" role="group" aria-label="보기 방식">
+      <button type="button" id="m-pair" aria-pressed="true">나란히</button>
+      <button type="button" id="m-swipe" aria-pressed="false">겹쳐 밀기</button>
+    </div>
+  </div>
+  <p class="warn" id="warn" hidden></p>
+  <div id="view"></div>
+</div>
+<script>
+(function(){
+  const $=id=>document.getElementById(id);
+  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const ver=(e,u)=>u+(e.version?(u.includes('?')?'&':'?')+'v='+e.version:'');
+  const fmt=iso=>{const d=new Date(iso);if(isNaN(d))return esc(iso);const p=n=>String(n).padStart(2,'0');
+    return `${d.getUTCFullYear()}-${p(d.getUTCMonth()+1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}${p(d.getUTCMinutes())} UTC`;};
+  let entries=[], mode='pair';
+  const qs=new URLSearchParams(location.search);
+  function info(e,tag){return `<div class="info"><div class="t">${tag} · ${fmt(e.time_utc)}</div><h2>${esc(e.title)}</h2>
+    ${e.memo?`<p>${esc(e.memo)}</p>`:''}${(e.tags||[]).length?`<div class="tags">${e.tags.map(t=>`<span>${esc(t)}</span>`).join('')}</div>`:''}
+    <a href="${esc(ver(e,e.map))}">지도 열기 →</a></div>`;}
+  function render(){
+    const A=entries.find(e=>e.id===$('a').value), B=entries.find(e=>e.id===$('b').value);
+    if(!A||!B){$('view').innerHTML='<p class="hint">비교하려면 회차가 2개 이상 있어야 합니다.</p>';return;}
+    history.replaceState(null,'',`?a=${encodeURIComponent(A.id)}&b=${encodeURIComponent(B.id)}${mode==='swipe'?'&m=swipe':''}`);
+    const w=$('warn');
+    if(mode==='swipe'&&A.id!==B.id){w.hidden=false;w.textContent='겹쳐 밀기는 두 회차의 지도 범위가 같을 때 의미가 있습니다. 범위가 다르면 나란히 보기를 쓰세요.';}
+    else w.hidden=true;
+    if(mode==='pair'){
+      $('view').innerHTML=`<div class="pair"><div class="pane"><img src="${esc(ver(A,A.composite))}" alt="${esc(A.title)} 합성 이미지">${info(A,'A')}</div>
+        <div class="pane"><img src="${esc(ver(B,B.composite))}" alt="${esc(B.title)} 합성 이미지">${info(B,'B')}</div></div>`;
+    } else {
+      $('view').innerHTML=`<div class="swipe" id="sw" role="slider" tabindex="0" aria-label="A와 B 경계 위치" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">
+        <img src="${esc(ver(A,A.composite))}" alt="A: ${esc(A.title)}">
+        <div class="top"><img src="${esc(ver(B,B.composite))}" alt="B: ${esc(B.title)}"></div>
+        <div class="line"></div><div class="knob" aria-hidden="true">⇆</div>
+        <span class="lab la">A</span><span class="lab lb">B</span></div>
+        <p class="hint">가운데 손잡이를 좌우로 끌거나 ←/→ 키로 경계를 옮기세요.</p>
+        <div class="pair" style="margin-top:12px"><div class="pane">${info(A,'A')}</div><div class="pane">${info(B,'B')}</div></div>`;
+      const sw=$('sw'); let x=50;
+      const set=v=>{x=Math.max(0,Math.min(100,v));sw.style.setProperty('--x',x+'%');sw.setAttribute('aria-valuenow',Math.round(x));};
+      const at=e=>{const r=sw.getBoundingClientRect();set((e.clientX-r.left)/r.width*100);};
+      sw.addEventListener('pointerdown',e=>{sw.setPointerCapture(e.pointerId);at(e);});
+      sw.addEventListener('pointermove',e=>{if(sw.hasPointerCapture(e.pointerId))at(e);});
+      sw.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'){set(x-5);e.preventDefault();}if(e.key==='ArrowRight'){set(x+5);e.preventDefault();}});
+    }
+  }
+  function setMode(m){mode=m;$('m-pair').setAttribute('aria-pressed',m==='pair');$('m-swipe').setAttribute('aria-pressed',m==='swipe');render();}
+  $('m-pair').onclick=()=>setMode('pair'); $('m-swipe').onclick=()=>setMode('swipe');
+  $('a').onchange=render; $('b').onchange=render;
+  fetch('entries.json',{cache:'no-cache'}).then(r=>r.json()).then(d=>{
+    entries=(Array.isArray(d)?d:d.entries||[]).slice().sort((x,y)=>(y.time_utc||'').localeCompare(x.time_utc||''));
+    const opts=entries.map(e=>`<option value="${esc(e.id)}">${fmt(e.time_utc)} · ${esc(e.title)}</option>`).join('');
+    $('a').innerHTML=opts; $('b').innerHTML=opts;
+    const a=qs.get('a')&&entries.some(e=>e.id===qs.get('a'))?qs.get('a'):entries[0]?.id;
+    const b=qs.get('b')&&entries.some(e=>e.id===qs.get('b'))?qs.get('b'):(entries.find(e=>e.id!==a)||entries[0])?.id;
+    if(a)$('a').value=a; if(b)$('b').value=b;
+    setMode(qs.get('m')==='swipe'?'swipe':'pair');
+  }).catch(()=>{$('view').innerHTML='<p class="hint">회차 목록(entries.json)을 불러오지 못했습니다.</p>';});
+})();
+</script>
+</body>
+</html>
