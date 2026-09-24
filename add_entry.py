@@ -5,7 +5,9 @@
          (옵션) --time "2026-09-23 1330" --title "제목" --memo "메모" --yes --no-push
 """
 import argparse
+import base64
 import datetime as dt
+import io
 import json
 import re
 import shutil
@@ -115,10 +117,36 @@ def inject_nav(html, entry_id):
     return html + nav if idx < 0 else html[:idx] + nav + html[idx:]
 
 
-def pick_composite(images, assume_yes):
+def composite_from_html(html):
+    """지도 HTML 에 data URI 로 들어 있는 레이어 이미지를 순서대로 겹쳐 한 장으로 만든다."""
+    layers = []
+    for mime, b64 in re.findall(r'<img\b[^>]*?\bsrc="data:(image/[\w+.-]+);base64,([A-Za-z0-9+/=\s]+)"', html):
+        try:
+            im = Image.open(io.BytesIO(base64.b64decode(b64)))
+            im.load()
+        except Exception:
+            continue
+        layers.append(im.convert("RGBA"))
+    if not layers:
+        return None
+    size = layers[0].size
+    layers = [im for im in layers if im.size == size]
+    m = re.search(r"--map-bg\s*:\s*(#[0-9A-Fa-f]{6})", html)
+    bg = tuple(int(m.group(1)[i:i + 2], 16) for i in (1, 3, 5)) if m else (255, 255, 255)
+    out = Image.new("RGBA", size, bg + (255,))
+    for im in layers:
+        out = Image.alpha_composite(out, im)
+    print(f"지도 HTML 의 레이어 {len(layers)}장을 겹쳐 합성 이미지를 만들었습니다.")
+    return out.convert("RGB")
+
+
+def pick_composite(images, assume_yes, can_generate=False):
+    """합성 이미지로 쓸 파일을 고른다. None 이면 HTML 레이어로 자동 생성."""
     named = [p for p in images if p.stem.lower().startswith(("composite", "합성"))]
     if named:
         return named[0]
+    if can_generate:
+        return None
     if len(images) == 1:
         return images[0]
     largest = max(images, key=lambda p: p.stat().st_size)
@@ -150,8 +178,11 @@ def main():
     images = sorted(p for p in files if p.suffix.lower() in IMAGE_EXT)
     if len(htmls) != 1:
         sys.exit(f"inbox 에 .html 파일이 정확히 1개 있어야 합니다 (현재 {len(htmls)}개).")
-    if not images:
-        sys.exit("inbox 에 .png/.jpg 이미지가 없습니다.")
+    html = htmls[0].read_text(encoding="utf-8")
+    generated = None if any(p.stem.lower().startswith(("composite", "합성")) for p in images) \
+        else composite_from_html(html)
+    if not images and generated is None:
+        sys.exit("inbox 에 이미지가 없고, 지도 HTML 에서도 합성할 레이어를 찾지 못했습니다.")
 
     while True:
         raw = args.time or ask('기준시각 UTC (예: 2026-09-23 1330)')
@@ -175,20 +206,22 @@ def main():
         shutil.rmtree(dest, ignore_errors=True)
         entries = [e for e in entries if e["id"] != entry_id]
 
-    composite_src = pick_composite(images, args.yes)
+    composite_src = pick_composite(images, args.yes, can_generate=generated is not None)
     (dest / "sources").mkdir(parents=True)
 
-    html = htmls[0].read_text(encoding="utf-8")
     (dest / "index.html").write_text(inject_nav(html, entry_id), encoding="utf-8")
 
-    with Image.open(composite_src) as im:
-        im.load()
-        full = im.convert("RGBA" if im.mode in ("RGBA", "LA", "P") else "RGB")
-        full.save(dest / "composite.webp", "WEBP", quality=90, method=6)
-        thumb = full.convert("RGB")
-        if thumb.width > THUMB_WIDTH:
-            thumb = thumb.resize((THUMB_WIDTH, round(thumb.height * THUMB_WIDTH / thumb.width)), Image.LANCZOS)
-        thumb.save(dest / "thumb.jpg", "JPEG", quality=85, optimize=True, progressive=True)
+    if composite_src is None:
+        full = generated
+    else:
+        with Image.open(composite_src) as im:
+            im.load()
+            full = im.convert("RGBA" if im.mode in ("RGBA", "LA", "P") else "RGB")
+    full.save(dest / "composite.webp", "WEBP", quality=90, method=6)
+    thumb = full.convert("RGB")
+    if thumb.width > THUMB_WIDTH:
+        thumb = thumb.resize((THUMB_WIDTH, round(thumb.height * THUMB_WIDTH / thumb.width)), Image.LANCZOS)
+    thumb.save(dest / "thumb.jpg", "JPEG", quality=85, optimize=True, progressive=True)
 
     sources = []
     for p in images:
