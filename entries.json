@@ -42,6 +42,15 @@
       "entries/2026-09-23_0700Z/sources/fr24_EK1.png",
       "entries/2026-09-23_0700Z/sources/ventusky_radar.png",
       "entries/2026-09-23_0700Z/sources/ventusky_wind200hpa.png"
-    ]
+    ],
+    "tags": [
+      "EK1",
+      "DXB→LHR",
+      "항적",
+      "SIGMET",
+      "레이더",
+      "제트기류"
+    ],
+    "version": 1790257646
   }
 ]
