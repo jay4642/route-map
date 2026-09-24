@@ -83,7 +83,7 @@ h1{font-size:19px;font-weight:600;line-height:1.3;margin:0 0 4px}
   const W={{W}},H={{H}}, K={{K}}, LON0={{LON0}}, Y0={{Y0}}, OX=0, OY=0, D=Math.PI/180;
   const map=document.getElementById('map'), st=document.getElementById('stack'), ro=document.getElementById('readout');
   let s=1,tx=0,ty=0,minS=0.2;
-  function apply(){st.style.transform=`translate(${tx}px,${ty}px) scale(${s})`;}
+  function apply(){st.style.transform=`translate(${tx}px,${ty}px) scale(${s})`;st.style.setProperty('--s',s);}
   function clamp(){const mw=map.clientWidth,mh=map.clientHeight;
     const w=W*s,h=H*s;
     tx = w<=mw ? (mw-w)/2 : Math.min(0,Math.max(mw-w,tx));

@@ -294,10 +294,11 @@ def ext_track(img, valid, p, ctx):
     pts = cv2.approxPolyDP(pts.astype(np.float32).reshape(-1, 1, 2), 0.5, False).reshape(-1, 2)
     color, width = p.get("color", "#8A2BE2"), p.get("width", 2.6)
     d = "M" + " L".join(f"{x:.1f},{y:.1f}" for x, y in pts)
-    svg = (f'<path d="{d}" fill="none" stroke="#ffffff" stroke-opacity=".9" stroke-width="{width + 2.4}" '
-           f'stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>'
-           f'<path d="{d}" fill="none" stroke="{color}" stroke-width="{width}" '
-           f'stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>')
+    # 선 굵기는 화면 기준으로 일정하게: --s(현재 확대 배율)로 나눈다
+    svg = (f'<path d="{d}" fill="none" stroke="#ffffff" stroke-opacity=".9" stroke-linejoin="round" '
+           f'stroke-linecap="round" style="stroke-width:calc({width + 2.4}px / var(--s,1))"/>'
+           f'<path d="{d}" fill="none" stroke="{color}" stroke-linejoin="round" stroke-linecap="round" '
+           f'style="stroke-width:calc({width}px / var(--s,1))"/>')
 
     def draw(canvas):
         q = np.round(pts * 16).astype(np.int32).reshape(-1, 1, 2)
@@ -345,12 +346,13 @@ def ext_sigmet(img, valid, p, ctx):
     parts = []
     for uv, lx, ly, room, text in polys:
         pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in uv)
-        parts.append(f'<polygon points="{pts}" fill="{fill}" fill-opacity=".2" stroke="{stroke}" stroke-width="2" '
-                     f'stroke-linejoin="round" vector-effect="non-scaling-stroke"/>')
+        parts.append(f'<polygon points="{pts}" fill="{fill}" fill-opacity=".2" stroke="{stroke}" '
+                     f'stroke-linejoin="round" style="stroke-width:calc(1.8px / var(--s,1))"/>')
         if show(room, text):
-            parts.append(f'<text x="{lx:.1f}" y="{ly:.1f}" font-size="{fs}" text-anchor="middle" dominant-baseline="central" '
-                         f'fill="{stroke}" font-weight="600" stroke="#fff" stroke-width="3" stroke-opacity=".75" '
-                         f'paint-order="stroke" style="font-family:inherit">{H.escape(text)}</text>')
+            parts.append(f'<text x="{lx:.1f}" y="{ly:.1f}" text-anchor="middle" dominant-baseline="central" '
+                         f'fill="{stroke}" font-weight="600" stroke="#fff" stroke-opacity=".8" paint-order="stroke" '
+                         f'style="font-family:inherit;font-size:calc({p.get("screen_font", 12)}px / var(--s,1));'
+                         f'stroke-width:calc(3px / var(--s,1))">{H.escape(text)}</text>')
 
     def draw(canvas):
         over = canvas.copy()
