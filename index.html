@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>항로 기상 중첩도 아카이브</title>
+<meta name="description" content="항로 기상 중첩 지도의 회차별 이력">
+<style>
+:root{
+  --bg:#EEF1F4; --panel:#FFFFFF; --ink:#16283D; --muted:#5B6B7C; --rule:#D3DAE1;
+  --accent:#A8327E; --accent-ink:#FFFFFF; --chip:#E4E9EE; --shadow:0 1px 2px rgba(22,40,61,.06),0 4px 14px rgba(22,40,61,.06);
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root{ --bg:#141C25; --panel:#1C2733; --ink:#E4EAF0; --muted:#9AA9B8; --rule:#2F4050;
+    --accent:#E07AB8; --accent-ink:#1A1020; --chip:#26333F; --shadow:none; color-scheme:dark; }
+}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;
+  font-size:15px;line-height:1.55;font-variant-numeric:tabular-nums}
+.wrap{max-width:1120px;margin:0 auto;padding:28px 16px 48px}
+header h1{font-size:24px;line-height:1.25;margin:0 0 4px;font-weight:700;letter-spacing:-.01em}
+header p{margin:0;color:var(--muted);font-size:14px}
+header a{color:var(--accent)}
+.filters{display:flex;flex-wrap:wrap;gap:10px 12px;align-items:flex-end;margin:22px 0 8px;
+  background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:14px;box-shadow:var(--shadow)}
+.filters label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--muted)}
+.filters input{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--rule);border-radius:7px;padding:7px 10px;min-height:38px}
+.filters .q{flex:1 1 220px}
+.filters .q input{width:100%}
+.filters button{font:inherit;min-height:38px;padding:0 14px;border-radius:7px;border:1px solid var(--rule);background:transparent;color:var(--ink);cursor:pointer}
+.count{color:var(--muted);font-size:13px;margin:10px 2px 14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;list-style:none;margin:0;padding:0}
+.card{background:var(--panel);border:1px solid var(--rule);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;box-shadow:var(--shadow)}
+.thumb{display:block;aspect-ratio:16/7;background:var(--chip);overflow:hidden}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.body{padding:14px 16px 16px;display:flex;flex-direction:column;gap:6px;flex:1}
+.time{font-size:13px;color:var(--accent);font-weight:600}
+.body h2{font-size:17px;line-height:1.35;margin:0}
+.memo{margin:0;color:var(--muted);font-size:13.5px;white-space:pre-line}
+.reg{color:var(--muted);font-size:12px}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto;padding-top:10px}
+.actions a,.actions button{font:inherit;font-size:13.5px;text-decoration:none;display:inline-flex;align-items:center;min-height:36px;padding:0 12px;border-radius:7px;border:1px solid var(--rule);color:var(--ink);background:transparent;cursor:pointer}
+.actions .primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.actions button:disabled{opacity:.45;cursor:default}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.empty{padding:40px 16px;text-align:center;color:var(--muted);background:var(--panel);border:1px dashed var(--rule);border-radius:12px}
+dialog{border:1px solid var(--rule);border-radius:12px;background:var(--panel);color:var(--ink);padding:0;width:min(960px,calc(100vw - 32px));max-height:calc(100vh - 32px)}
+dialog::backdrop{background:rgba(10,16,24,.6)}
+.dhead{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--rule);position:sticky;top:0;background:var(--panel)}
+.dhead h3{margin:0;font-size:15px;flex:1}
+.dhead button{font:inherit;border:1px solid var(--rule);background:transparent;color:var(--ink);border-radius:7px;min-height:34px;padding:0 12px;cursor:pointer}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;padding:16px}
+.gallery a{display:block;color:var(--ink);text-decoration:none;font-size:12.5px}
+.gallery img{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:8px;border:1px solid var(--rule);background:var(--chip);display:block;margin-bottom:4px}
+.gallery span{word-break:break-all;color:var(--muted)}
+footer{margin-top:36px;color:var(--muted);font-size:12.5px}
+@media (max-width:520px){
+  .grid{grid-template-columns:1fr}
+  .filters label:not(.q){flex:1 1 40%}
+  .filters input[type=date]{width:100%}
+  header h1{font-size:21px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>항로 기상 중첩도 아카이브</h1>
+    <p>회차별 항로·기상 중첩 지도 이력입니다. 기준시각은 모두 UTC입니다. · <a href="latest/">최신 회차 바로 보기</a></p>
+  </header>
+
+  <form class="filters" id="filters" role="search" onsubmit="return false">
+    <label>시작일 (UTC)<input type="date" id="from"></label>
+    <label>종료일 (UTC)<input type="date" id="to"></label>
+    <label class="q">제목·메모 검색<input type="search" id="q" placeholder="예: OZ222, SIGMET, 제트기류"></label>
+    <button type="button" id="reset">초기화</button>
+  </form>
+
+  <div class="count" id="count" aria-live="polite"></div>
+  <ul class="grid" id="list"></ul>
+
+  <footer>연구·학습용 참고 자료입니다. 실제 운항 판단에는 공식 브리핑 자료를 사용하세요.</footer>
+</div>
+
+<dialog id="dlg" aria-labelledby="dlg-title">
+  <div class="dhead"><h3 id="dlg-title">원본 캡처</h3><button type="button" id="dlg-close">닫기</button></div>
+  <div class="gallery" id="gallery"></div>
+</dialog>
+
+<script>
+(function(){
+  const $=id=>document.getElementById(id);
+  const list=$('list'), count=$('count'), from=$('from'), to=$('to'), q=$('q');
+  let entries=[];
+
+  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  function fmtUTC(iso){
+    const d=new Date(iso); if(isNaN(d)) return esc(iso);
+    const p=n=>String(n).padStart(2,'0');
+    return `${d.getUTCFullYear()}-${p(d.getUTCMonth()+1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}${p(d.getUTCMinutes())} UTC`;
+  }
+
+  function render(){
+    const f=from.value, t=to.value, term=q.value.trim().toLowerCase();
+    const rows=entries.filter(e=>{
+      const day=(e.time_utc||'').slice(0,10);
+      if(f && day<f) return false;
+      if(t && day>t) return false;
+      if(term && !((e.title||'')+' '+(e.memo||'')).toLowerCase().includes(term)) return false;
+      return true;
+    });
+    count.textContent = entries.length ? `전체 ${entries.length}건 중 ${rows.length}건 표시` : '';
+    if(!rows.length){
+      list.innerHTML=`<li class="empty">${entries.length?'조건에 맞는 회차가 없습니다.':'아직 등록된 회차가 없습니다.'}</li>`;
+      return;
+    }
+    list.innerHTML=rows.map(e=>{
+      const n=(e.sources||[]).length;
+      return `<li class="card">
+        <a class="thumb" href="${esc(e.map)}" aria-label="${esc(e.title)} 지도 열기"><img src="${esc(e.thumb)}" alt="" loading="lazy" width="800" height="350"></a>
+        <div class="body">
+          <div class="time">${fmtUTC(e.time_utc)}</div>
+          <h2>${esc(e.title)}</h2>
+          ${e.memo?`<p class="memo">${esc(e.memo)}</p>`:''}
+          <div class="reg">등록 ${esc(e.registered)}</div>
+          <div class="actions">
+            <a class="primary" href="${esc(e.map)}">지도 열기</a>
+            <a href="${esc(e.composite)}" target="_blank" rel="noopener">합성 이미지</a>
+            <button type="button" data-id="${esc(e.id)}" ${n?'':'disabled'}>원본 캡처${n?` (${n})`:''}</button>
+          </div>
+        </div>
+      </li>`;
+    }).join('');
+  }
+
+  list.addEventListener('click',ev=>{
+    const b=ev.target.closest('button[data-id]'); if(!b) return;
+    const e=entries.find(x=>x.id===b.dataset.id); if(!e) return;
+    $('dlg-title').textContent=`원본 캡처 · ${e.title}`;
+    $('gallery').innerHTML=e.sources.map(s=>`<a href="${esc(s)}" target="_blank" rel="noopener"><img src="${esc(s)}" alt="" loading="lazy"><span>${esc(s.split('/').pop())}</span></a>`).join('');
+    $('dlg').showModal();
+  });
+  $('dlg-close').onclick=()=>$('dlg').close();
+  $('dlg').addEventListener('click',ev=>{ if(ev.target===$('dlg')) $('dlg').close(); });
+
+  [from,to,q].forEach(el=>el.addEventListener('input',render));
+  $('reset').onclick=()=>{from.value='';to.value='';q.value='';render();};
+
+  fetch('entries.json',{cache:'no-cache'}).then(r=>r.json()).then(data=>{
+    entries=(Array.isArray(data)?data:data.entries||[]).slice().sort((a,b)=>(b.time_utc||'').localeCompare(a.time_utc||''));
+    render();
+  }).catch(()=>{ list.innerHTML='<li class="empty">회차 목록(entries.json)을 불러오지 못했습니다.</li>'; });
+})();
+</script>
+</body>
+</html>
