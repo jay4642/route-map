@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{{TITLE}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EEF1F4; --panel:#F7F9FA; --ink:#16283D; --muted:#5B6B7C; --rule:#C9D2DB;
+  --magenta:#A8327E; --map-bg:{{MAP_BG}};
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+  --paper:#18222D; --panel:#1E2A36; --ink:#E4EAF0; --muted:#9AA9B8; --rule:#34485A; --magenta:#E07AB8; }}
+:root[data-theme="dark"]{ --paper:#18222D; --panel:#1E2A36; --ink:#E4EAF0; --muted:#9AA9B8; --rule:#34485A; --magenta:#E07AB8; }
+*,*::before,*::after{box-sizing:inherit}
+html,body{height:100%;margin:0}
+body{background:var(--paper);color:var(--ink);font-family:"IBM Plex Sans KR",system-ui,-apple-system,"Malgun Gothic",sans-serif;font-size:14px;line-height:1.5;font-variant-numeric:tabular-nums}
+.app{display:flex;height:100%}
+.map{position:relative;flex:1;overflow:hidden;background:var(--map-bg);touch-action:none;cursor:grab}
+.map.drag{cursor:grabbing}
+.stack{position:absolute;left:0;top:0;width:{{W}}px;height:{{H}}px;transform-origin:0 0;will-change:transform}
+.stack img{position:absolute;inset:0;width:100%;height:100%;user-select:none;-webkit-user-drag:none;pointer-events:none;image-rendering:auto}
+.readout{position:absolute;left:12px;bottom:12px;background:var(--panel);color:var(--ink);border:1px solid var(--rule);border-radius:6px;padding:6px 10px;font-size:13px;min-width:190px}
+.zoom{position:absolute;right:12px;top:12px;display:flex;flex-direction:column;gap:6px}
+.zoom button{width:36px;height:36px;border-radius:6px;border:1px solid var(--rule);background:var(--panel);color:var(--ink);font-size:18px;cursor:pointer}
+.zoom button:focus-visible,.layer input:focus-visible{outline:2px solid var(--magenta);outline-offset:2px}
+aside{width:360px;flex:none;background:var(--panel);border-left:1px solid var(--rule);overflow-y:auto;padding:20px 20px 28px}
+h1{font-size:19px;font-weight:600;line-height:1.3;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 18px;font-size:13px}
+.layer{border-top:1px solid var(--rule);padding:12px 0}
+.row{display:flex;align-items:center;gap:10px}
+.row label{flex:1;font-weight:500;cursor:pointer}
+.swatch{width:14px;height:14px;border-radius:3px;flex:none}
+.meta{color:var(--muted);font-size:12.5px;margin:4px 0 0 24px}
+.meta b{color:var(--ink);font-weight:500}
+.op{display:flex;align-items:center;gap:8px;margin:8px 0 0 24px;font-size:12px;color:var(--muted)}
+.op input{flex:1;accent-color:var(--magenta)}
+.layer input[type=checkbox]{width:16px;height:16px;accent-color:var(--magenta);margin:0}
+.scale{display:flex;margin:8px 0 0 24px;border-radius:3px;overflow:hidden}
+.scale span{flex:1;font-size:10.5px;text-align:center;padding:2px 0;color:#fff;text-shadow:0 0 2px rgba(0,0,0,.6)}
+.notes{border-top:1px solid var(--rule);margin-top:6px;padding-top:12px;font-size:12.5px;color:var(--muted)}
+.notes h2{font-size:13px;color:var(--ink);font-weight:600;margin:0 0 6px}
+.notes p{margin:0 0 8px}
+.warn{color:var(--magenta)}
+@media (max-width:800px){
+  .app{flex-direction:column}
+  .map{flex:none;height:58%}
+  aside{width:auto;border-left:0;border-top:1px solid var(--rule)}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="map" id="map" aria-label="중첩 지도 (드래그로 이동, 휠로 확대)">
+    <div class="stack" id="stack">
+{{IMGS}}
+    </div>
+    <div class="zoom">
+      <button id="zin" aria-label="확대">+</button>
+      <button id="zout" aria-label="축소">−</button>
+      <button id="zfit" aria-label="전체 보기" style="font-size:13px">⤢</button>
+    </div>
+    <div class="readout" id="readout">커서 위치 좌표</div>
+  </div>
+  <aside>
+    <h1>{{H1}}</h1>
+    <p class="sub">{{SUB}}</p>
+
+    {{PANEL}}
+    <div class="notes">
+      <h2>읽기 전에</h2>
+{{NOTES}}    </div>
+  </aside>
+</div>
+<script>
+(function(){
+  const W={{W}},H={{H}}, K={{K}}, LON0={{LON0}}, Y0={{Y0}}, OX=0, OY=0, D=Math.PI/180;
+  const map=document.getElementById('map'), st=document.getElementById('stack'), ro=document.getElementById('readout');
+  let s=1,tx=0,ty=0,minS=0.2;
+  function apply(){st.style.transform=`translate(${tx}px,${ty}px) scale(${s})`;}
+  function clamp(){const mw=map.clientWidth,mh=map.clientHeight;
+    const w=W*s,h=H*s;
+    tx = w<=mw ? (mw-w)/2 : Math.min(0,Math.max(mw-w,tx));
+    ty = h<=mh ? (mh-h)/2 : Math.min(0,Math.max(mh-h,ty));}
+  function fit(){const mw=map.clientWidth,mh=map.clientHeight; s=Math.min(mw/W,mh/H); minS=s; tx=0;ty=0; clamp(); apply();}
+  function zoomAt(f,cx,cy){const ns=Math.max(minS,Math.min(3,s*f)); tx=cx-(cx-tx)*ns/s; ty=cy-(cy-ty)*ns/s; s=ns; clamp(); apply();}
+  map.addEventListener('wheel',e=>{e.preventDefault();const r=map.getBoundingClientRect();zoomAt(e.deltaY<0?1.15:1/1.15,e.clientX-r.left,e.clientY-r.top);},{passive:false});
+  const pts=new Map(); let last=null, pinch=null;
+  map.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;map.setPointerCapture(e.pointerId);pts.set(e.pointerId,[e.clientX,e.clientY]);map.classList.add('drag');last=[e.clientX,e.clientY];});
+  map.addEventListener('pointermove',e=>{
+    const r=map.getBoundingClientRect();
+    const mx=(e.clientX-r.left-tx)/s, my=(e.clientY-r.top-ty)/s;
+    if(mx>=0&&mx<=W&&my>=0&&my<=H){
+      const x=mx+OX,y=my+OY; let lon=x/(K*D)+LON0; lat=(2*Math.atan(Math.exp(Y0-y/K))-Math.PI/2)/D;
+      lon=((lon+180)%360+360)%360-180;
+      ro.textContent=`${Math.abs(lat).toFixed(2)}°${lat>=0?'N':'S'}  ${Math.abs(lon).toFixed(2)}°${lon>=0?'E':'W'}`;
+    }
+    if(!pts.has(e.pointerId))return;
+    pts.set(e.pointerId,[e.clientX,e.clientY]);
+    if(pts.size===2){const [a,b]=[...pts.values()];const d=Math.hypot(a[0]-b[0],a[1]-b[1]);
+      if(pinch){zoomAt(d/pinch,(a[0]+b[0])/2-r.left,(a[1]+b[1])/2-r.top);} pinch=d; return;}
+    if(last){tx+=e.clientX-last[0];ty+=e.clientY-last[1];last=[e.clientX,e.clientY];clamp();apply();}
+  });
+  function up(e){pts.delete(e.pointerId);pinch=null;last=pts.size?[...pts.values()][0]:null;if(!pts.size)map.classList.remove('drag');}
+  map.addEventListener('pointerup',up);map.addEventListener('pointercancel',up);
+  document.getElementById('zin').onclick=()=>zoomAt(1.4,map.clientWidth/2,map.clientHeight/2);
+  document.getElementById('zout').onclick=()=>zoomAt(1/1.4,map.clientWidth/2,map.clientHeight/2);
+  document.getElementById('zfit').onclick=fit;
+  window.addEventListener('resize',fit);
+  document.querySelectorAll('input[type=range]').forEach(r=>r.addEventListener('input',()=>{document.getElementById(r.dataset.for).style.opacity=r.value/100;}));
+  document.querySelectorAll('.layer input[type=checkbox]').forEach(c=>c.addEventListener('change',()=>{document.getElementById('img-'+c.id.slice(2)).style.display=c.checked?'':'none';}));
+  fit();
+})();
+</script>
+</body>
+</html>
