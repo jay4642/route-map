@@ -17,5 +17,21 @@
       "entries/2026-09-23_1330Z/sources/layer5_sigmet.png",
       "entries/2026-09-23_1330Z/sources/layer6_track.png"
     ]
+  },
+  {
+    "id": "2026-09-23_0700Z",
+    "title": "유럽·중동 항로 EK1 DXB→LHR",
+    "time_utc": "2026-09-23T07:00Z",
+    "registered": "2026-09-24",
+    "memo": "EK1(UAE1) 두바이→런던 항적에 SIGMET·기상레이더·제트기류(200 hPa)를 중첩. 기상 자료는 07:00, 항적은 11:33 UTC 기준으로 약 4시간 30분 차이가 있습니다.",
+    "map": "entries/2026-09-23_0700Z/",
+    "composite": "entries/2026-09-23_0700Z/composite.webp",
+    "thumb": "entries/2026-09-23_0700Z/thumb.jpg",
+    "sources": [
+      "entries/2026-09-23_0700Z/sources/awc_sigmet.png",
+      "entries/2026-09-23_0700Z/sources/fr24_EK1.png",
+      "entries/2026-09-23_0700Z/sources/ventusky_radar.png",
+      "entries/2026-09-23_0700Z/sources/ventusky_wind200hpa.png"
+    ]
   }
 ]
