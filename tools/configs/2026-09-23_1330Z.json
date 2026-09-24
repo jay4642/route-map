@@ -1,0 +1,276 @@
+{
+ "reuse_html": "entries/2026-09-23_1330Z/index.html",
+ "replace": [
+  [
+   "점선 구간은 수신 공백 구간의 추정 위치",
+   "수신이 끊긴 구간은 앞뒤 위치를 이어 추정한 선"
+  ],
+  [
+   "흰 줄은 원본 유선(풍향)",
+   "풍향 유선(흰 줄)은 제거"
+  ]
+ ],
+ "map_bg": "#6ACFE3",
+ "out": "inbox",
+ "webp_quality": 92,
+ "frame": {
+  "K": 651.7882979407941,
+  "lon0": 87.9354857236533,
+  "Y0": 2.0557758754371456,
+  "W": 2730,
+  "H": 1195
+ },
+ "sources": [
+  {
+   "file": "inbox/layer0_base.png",
+   "georef": "frame",
+   "layers": [
+    {
+     "id": "base",
+     "kind": "copy"
+    }
+   ]
+  },
+  {
+   "file": "inbox/layer1_grid.png",
+   "georef": "frame",
+   "layers": [
+    {
+     "id": "grid",
+     "kind": "copy"
+    }
+   ]
+  },
+  {
+   "file": "inbox/layer2_jet.png",
+   "georef": "frame",
+   "layers": [
+    {
+     "id": "jet",
+     "kind": "jet",
+     "erode_valid": 2,
+     "min_area": 300,
+     "opacity": 0.8,
+     "palette_rgb": [
+      [
+       200,
+       79,
+       117
+      ],
+      [
+       166,
+       62,
+       98
+      ],
+      [
+       145,
+       34,
+       80
+      ],
+      [
+       100,
+       31,
+       32
+      ],
+      [
+       43,
+       1,
+       4
+      ]
+     ],
+     "alpha": 0.7
+    }
+   ]
+  },
+  {
+   "file": "inbox/layer3_aurora.png",
+   "georef": "frame",
+   "layers": [
+    {
+     "id": "aurora",
+     "kind": "copy"
+    }
+   ]
+  },
+  {
+   "file": "inbox/layer4_radar.png",
+   "georef": "frame",
+   "layers": [
+    {
+     "id": "radar",
+     "kind": "radar",
+     "min_area": 10,
+     "palette_dbz": [
+      6,
+      10,
+      16,
+      20,
+      26,
+      30,
+      36,
+      40,
+      46,
+      50,
+      56
+     ],
+     "palette_rgb": [
+      [
+       104,
+       101,
+       132
+      ],
+      [
+       93,
+       103,
+       158
+      ],
+      [
+       75,
+       142,
+       172
+      ],
+      [
+       83,
+       180,
+       99
+      ],
+      [
+       91,
+       194,
+       72
+      ],
+      [
+       161,
+       207,
+       71
+      ],
+      [
+       198,
+       216,
+       64
+      ],
+      [
+       215,
+       157,
+       69
+      ],
+      [
+       201,
+       89,
+       100
+      ],
+      [
+       165,
+       43,
+       92
+      ],
+      [
+       122,
+       24,
+       63
+      ]
+     ],
+     "alpha": 0.7
+    }
+   ]
+  },
+  {
+   "file": "inbox/layer5_sigmet.png",
+   "georef": "frame",
+   "layers": [
+    {
+     "id": "sigmet",
+     "kind": "sigmet",
+     "from_alpha": true,
+     "close": 7,
+     "min_area": 60,
+     "font_px": 20,
+     "label_radius": 90,
+     "labels": [
+      [
+       161.5,
+       21.7,
+       "TS"
+      ],
+      [
+       -80.3,
+       28.6,
+       "Conv·TS"
+      ],
+      [
+       -106.7,
+       32.6,
+       "Conv·TS"
+      ],
+      [
+       -84.7,
+       36.2,
+       "Conv"
+      ],
+      [
+       -64.8,
+       34.1,
+       "TS"
+      ],
+      [
+       -80.2,
+       39.2,
+       "Conv"
+      ],
+      [
+       -81.8,
+       41.1,
+       "Conv"
+      ],
+      [
+       121.5,
+       41.6,
+       "TS"
+      ],
+      [
+       -97.6,
+       42.9,
+       "Conv"
+      ],
+      [
+       137.8,
+       45.6,
+       ""
+      ],
+      [
+       -106.5,
+       46.7,
+       "Conv"
+      ],
+      [
+       -179.0,
+       55.9,
+       "TS"
+      ]
+     ]
+    }
+   ]
+  },
+  {
+   "file": "inbox/layer6_track.png",
+   "georef": "frame",
+   "layers": [
+    {
+     "id": "track",
+     "kind": "track",
+     "from_alpha": true,
+     "color": "#8A2BE2"
+    }
+   ]
+  }
+ ],
+ "order": [
+  "base",
+  "grid",
+  "jet",
+  "aurora",
+  "radar",
+  "sigmet",
+  "track"
+ ]
+}
