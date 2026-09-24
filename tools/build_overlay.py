@@ -503,6 +503,8 @@ def main(cfg_path):
         old = (ROOT / cfg["reuse_html"]).read_text(encoding="utf-8")
         aside = old[old.index("<h1>"):old.index("</aside>")]
         for x, y in cfg.get("replace", []):
+            if y in aside and x not in aside:      # 이미 바뀐 상태
+                continue
             assert x in aside, f"바꿀 문구를 찾지 못함: {x}"
             aside = aside.replace(x, y)
         title = re.search(r"<title>(.*?)</title>", old).group(1)
