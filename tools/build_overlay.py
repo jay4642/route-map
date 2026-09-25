@@ -65,6 +65,23 @@ class Frame:
         return (lon * D - self.LON0) * self.K, (self.Y0 - merc(lat)) * self.K
 
 
+def ortho_maps(F, p):
+    """출력 좌표계 각 픽셀의 원본(정사투영 원판 이미지) 좌표. p = {cx, cy, R, lat0, lon0, rot}"""
+    lon = F.LON0 + np.arange(F.W, dtype=np.float64) / F.K
+    lat = 2 * np.arctan(np.exp(F.Y0 - np.arange(F.H, dtype=np.float64) / F.K)) - math.pi / 2
+    L, P = np.meshgrid(lon, lat)
+    f0, dl = p["lat0"] * D, L - p["lon0"] * D
+    x = p["R"] * np.cos(P) * np.sin(dl)
+    y = p["R"] * (math.cos(f0) * np.sin(P) - math.sin(f0) * np.cos(P) * np.cos(dl))
+    back = math.sin(f0) * np.sin(P) + math.cos(f0) * np.cos(P) * np.cos(dl) < 0   # 지구 뒷면
+    r = p.get("rot", 0) * D
+    X = p["cx"] + x * math.cos(r) - y * math.sin(r)
+    Y = p["cy"] - (x * math.sin(r) + y * math.cos(r))
+    X[back] = -1
+    Y[back] = -1
+    return X.astype(np.float32), Y.astype(np.float32)
+
+
 # ---------------------------------------------------------------- 공통 도구
 
 def ui_mask(shape, rects):
@@ -264,6 +281,19 @@ def ext_jet(img, valid, p, ctx):
     return np.dstack([cl, (a * 255).astype(np.uint8)])
 
 
+def ext_aurora(img, valid, p, ctx):
+    """오로라 예측(NOAA OVATION): 바탕 지도 위의 초록~노랑~빨강 빛만 남기고, 격자·해안선 흰 선은 지운다."""
+    sm = cv2.medianBlur(fill_outside(img, valid), 5)
+    b, g, r, mx, mn, sat = channels(sm)
+    glow = np.maximum(g, r) - b                          # 파란 바다·회갈색 육지 위에서 초록/노랑/빨강이 얼마나 강한지
+    a = np.clip((glow - p.get("thr", 35)) / p.get("span", 150), 0, 1)
+    a *= (np.maximum(g, r) > r * 0.9) & ((g - r > 15) | (r - b > 90))     # 회갈색 육지(r≈g>b)는 제외
+    a = cv2.GaussianBlur(a.astype(np.float32), (0, 0), 1.5) * p.get("opacity", 0.8) * (valid > 0)
+    f = sm.astype(np.float32)
+    col = np.clip(f * (255.0 / np.maximum(f.max(2, keepdims=True), 1)), 0, 255)   # 밝기를 올려 선명한 색으로
+    return np.dstack([col.astype(np.uint8), (a * 255).astype(np.uint8)])
+
+
 def ext_flow(img, valid, p, ctx):
     """풍향 유선: 풍속 화면의 흰 유선만 뽑아 흰 선 + 옅은 어두운 테두리로 그린다.
 
@@ -394,6 +424,8 @@ def ext_sigmet(img, valid, p, ctx):
     labels = p.get("labels", [])
     polys = []
     for c in cnts:
+        if p.get("hull"):                              # 화면 가장자리에서 잘린 구역은 볼록 다각형으로 닫는다
+            c = cv2.convexHull(c)
         c = cv2.approxPolyDP(c, p.get("simplify", 1.6), True).reshape(-1, 2)
         if len(c) < 3:
             continue
@@ -448,6 +480,7 @@ EXTRACTORS = {
     "radar": ext_radar,
     "jet": ext_jet,
     "flow": ext_flow,
+    "aurora": ext_aurora,
     "track": ext_track,
     "sigmet": ext_sigmet,
 }
@@ -635,12 +668,15 @@ def main(cfg_path):
     layers, aux = {}, {}
     for s in cfg["sources"]:
         img, alpha, valid = load_source(s)
-        g = F.identity() if s["georef"] == "frame" else s["georef"]
+        g = F.identity() if s["georef"] in ("frame",) or isinstance(s["georef"], dict) else s["georef"]
         ctx = {"F": F, "g": g, "alpha": alpha, "aux": {}}
         for lay in s["layers"]:
             res = EXTRACTORS[lay["kind"]](img, valid, lay, ctx)
             if isinstance(res, dict):
                 layers[lay["id"]] = res
+            elif isinstance(s["georef"], dict):       # 정사투영 원판 이미지
+                X, Y = ortho_maps(F, s["georef"])
+                layers[lay["id"]] = cv2.remap(res, X, Y, cv2.INTER_CUBIC, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
             else:
                 interp = cv2.INTER_NEAREST if s["georef"] == "frame" else cv2.INTER_CUBIC
                 layers[lay["id"]] = F.warp(res, g, interp)
