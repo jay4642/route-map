@@ -288,6 +288,22 @@ def ext_flow(img, valid, p, ctx):
                              borderMode=cv2.BORDER_REPLICATE)
         static = cv2.dilate((bright_residual(ref) > p.get("static_thr", 14)).astype(np.uint8), np.ones((3, 3), np.uint8))
         r[static > 0] = 0
+    if p.get("remove_pressure_labels"):
+        # 기압 표시("H/L", "1019 hPa", 작은 원)를 "hPa" 글자 모양으로 찾아 그 묶음 영역을 지운다
+        tpl = cv2.imread(str(Path(__file__).parent / "templates" / "hpa.png"), cv2.IMREAD_GRAYSCALE)
+        th = bright_residual(src).astype(np.uint8)
+        score = cv2.matchTemplate(th, tpl, cv2.TM_CCOEFF_NORMED)
+        ys, xs = np.nonzero(score > p.get("label_score", 0.65))
+        found = 0
+        for y, x in sorted(zip(ys, xs), key=lambda q: -score[q]):
+            if valid[y, x] == 0 or r[y, x] < 0:
+                continue
+            r[max(0, y - 36):y + 46, max(0, x - 52):x + 40] = -1          # 이미 지운 곳은 다시 세지 않음
+            found += 1
+        r = np.maximum(r, 0)
+        print(f"    기압 표시 {found}곳 제거")
+    for x0, y0, x1, y1 in p.get("erase", []):          # 손으로 지정한 글자·해안선 조각 지우기
+        r[y0:y1, x0:x1] = 0
     core = np.clip((r - p.get("thr", 12)) / p.get("span", 45), 0, 1)
     core = clean(core > 0, min_area=p.get("min_area", 6)) * core            # 점 잡티 제거
     core *= (valid > 0)

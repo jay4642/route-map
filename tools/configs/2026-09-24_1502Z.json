@@ -504,7 +504,8 @@
      "static_offset": [
       36.82,
       4.2
-     ]
+     ],
+     "remove_pressure_labels": true
     }
    ]
   }
