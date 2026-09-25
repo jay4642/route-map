@@ -1,5 +1,35 @@
 [
   {
+    "id": "2026-09-23_1330Z",
+    "title": "북태평양 항로 OZ222 ICN→JFK",
+    "time_utc": "2026-09-23T13:30Z",
+    "registered": "2026-09-25",
+    "memo": "레이어 7종(항적·SIGMET·레이더·제트기류·오로라·격자·기본 지도). 합성 이미지는 레이어를 평탄화해 생성했고, 원본 캡처 칸에는 재투영된 레이어 이미지를 담았습니다.",
+    "map": "entries/2026-09-23_1330Z/",
+    "composite": "entries/2026-09-23_1330Z/composite.webp",
+    "thumb": "entries/2026-09-23_1330Z/thumb.jpg",
+    "sources": [
+      "entries/2026-09-23_1330Z/sources/layer0_base.png",
+      "entries/2026-09-23_1330Z/sources/layer1_grid.png",
+      "entries/2026-09-23_1330Z/sources/layer2_jet.png",
+      "entries/2026-09-23_1330Z/sources/layer3_aurora.png",
+      "entries/2026-09-23_1330Z/sources/layer4_radar.png",
+      "entries/2026-09-23_1330Z/sources/layer5_sigmet.png",
+      "entries/2026-09-23_1330Z/sources/layer6_track.png"
+    ],
+    "round": 4,
+    "tags": [
+      "OZ222",
+      "ICN→JFK",
+      "항적",
+      "SIGMET",
+      "레이더",
+      "제트기류",
+      "오로라"
+    ],
+    "version": 1790304601
+  },
+  {
     "id": "2026-09-24_1502Z",
     "title": "남아시아·중동·유럽 항로 SQ308 SIN→LHR",
     "time_utc": "2026-09-24T15:02Z",
@@ -50,34 +80,5 @@
       "제트기류"
     ],
     "version": 1790304580
-  },
-  {
-    "id": "2026-09-23_1330Z",
-    "title": "북태평양 항로 OZ222 ICN→JFK",
-    "time_utc": "2026-09-23T13:30Z",
-    "registered": "2026-09-24",
-    "memo": "레이어 7종(항적·SIGMET·레이더·제트기류·오로라·격자·기본 지도). 합성 이미지는 레이어를 평탄화해 생성했고, 원본 캡처 칸에는 재투영된 레이어 이미지를 담았습니다.",
-    "map": "entries/2026-09-23_1330Z/",
-    "composite": "entries/2026-09-23_1330Z/composite.webp",
-    "thumb": "entries/2026-09-23_1330Z/thumb.jpg",
-    "sources": [
-      "entries/2026-09-23_1330Z/sources/layer0_base.png",
-      "entries/2026-09-23_1330Z/sources/layer1_grid.png",
-      "entries/2026-09-23_1330Z/sources/layer2_jet.png",
-      "entries/2026-09-23_1330Z/sources/layer3_aurora.png",
-      "entries/2026-09-23_1330Z/sources/layer4_radar.png",
-      "entries/2026-09-23_1330Z/sources/layer5_sigmet.png",
-      "entries/2026-09-23_1330Z/sources/layer6_track.png"
-    ],
-    "tags": [
-      "OZ222",
-      "ICN→JFK",
-      "항적",
-      "SIGMET",
-      "레이더",
-      "제트기류",
-      "오로라"
-    ],
-    "version": 1790257639
   }
 ]
