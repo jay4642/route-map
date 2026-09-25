@@ -520,13 +520,20 @@ def time_badge(t, ref):
     """레이어 자료 시각(HH:MM)과 기준 시각의 차이를 배지로."""
     if not t or not ref:
         return ""
-    th, tm = map(int, t.split(":")); rh, rm = map(int, ref.split(":"))
-    d = (th * 60 + tm) - (rh * 60 + rm)
+    def minutes(x):                              # "HH:MM" 또는 "YYYY-MM-DD HH:MM"
+        import datetime as dt
+        if " " in x:
+            return dt.datetime.strptime(x, "%Y-%m-%d %H:%M").timestamp() / 60
+        h, m = map(int, x.split(":"))
+        return h * 60 + m
+    d = int(round(minutes(t) - minutes(ref)))
     if d == 0:
         return '<span class="tb tb-ref">기준</span>'
     sign = "+" if d > 0 else "−"
     a = abs(d)
     txt = f"{sign}{a // 60}h{a % 60:02d}m" if a >= 60 else f"{sign}{a}m"
+    if a >= 1440:
+        txt = f"{sign}{a // 1440}d{a % 1440 // 60}h"
     cls = "tb-ok" if a <= 30 else "tb-mid" if a <= 120 else "tb-far"
     return f'<span class="tb {cls}" title="항적 기준 시각 대비 자료 시각 차이">{txt}</span>'
 

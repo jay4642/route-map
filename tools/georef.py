@@ -89,7 +89,7 @@ def align(cfg_path, ti_, ri_, tkind, rkind):
     cur, s0 = (A0, B0, D0), 0
     for K, steps in [(250, [(0.02, 24), (0.01, 12), (0.005, 6), (0.0025, 3)]),
                      (900, [(0.001, 1), (0.0005, 0.5), (0.00025, 0.25)])]:
-        F = Frame(K, lon(0), lon(w), lat(h), lat(0))
+        F = Frame({"K": K, "lon0": lon(0), "lon1": lon(w), "lat0": lat(h), "lat1": lat(0)})
         RW = F.warp(rw, rgeo, cv2.INTER_NEAREST); RV = F.warp(rv, rgeo, cv2.INTER_NEAREST)
 
         def score(A, B, Dd):
