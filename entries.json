@@ -1,5 +1,33 @@
 [
   {
+    "id": "2026-09-24_0745Z",
+    "title": "북대서양 항로 BA172 JFK→LHR",
+    "time_utc": "2026-09-24T07:45Z",
+    "registered": "2026-09-25",
+    "memo": "BA172(BAW172) 뉴욕→런던 항적에 SIGMET(FL360)·기상레이더·제트기류·풍향 유선(200 hPa)·오로라 예측을 중첩. 기상 자료 04:00 UTC, 오로라 06:40 UTC 예측, 항적 07:45 UTC입니다.",
+    "map": "entries/2026-09-24_0745Z/",
+    "composite": "entries/2026-09-24_0745Z/composite.webp",
+    "thumb": "entries/2026-09-24_0745Z/thumb.jpg",
+    "sources": [
+      "entries/2026-09-24_0745Z/sources/awc_sigmet.png",
+      "entries/2026-09-24_0745Z/sources/fr24_BA172.png",
+      "entries/2026-09-24_0745Z/sources/swpc_aurora.png",
+      "entries/2026-09-24_0745Z/sources/ventusky_radar.png",
+      "entries/2026-09-24_0745Z/sources/ventusky_wind200hpa.png"
+    ],
+    "round": 5,
+    "tags": [
+      "BA172",
+      "JFK→LHR",
+      "항적",
+      "SIGMET",
+      "레이더",
+      "제트기류",
+      "오로라"
+    ],
+    "version": 1790316519
+  },
+  {
     "id": "2026-09-23_1330Z",
     "title": "북태평양 항로 OZ222 ICN→JFK",
     "time_utc": "2026-09-23T13:30Z",
