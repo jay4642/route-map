@@ -1,5 +1,31 @@
 [
   {
+    "id": "2026-09-24_1502Z",
+    "title": "남아시아·중동·유럽 항로 SQ308 SIN→LHR",
+    "time_utc": "2026-09-24T15:02Z",
+    "registered": "2026-09-25",
+    "memo": "SQ308(SIA308) 싱가포르→런던 항적에 SIGMET(FL360)·기상레이더·제트기류(200 hPa)를 중첩. 항적 9/24 15:02 UTC, SIGMET 9/24 08:00 UTC, Ventusky 9/23 23:00 UTC 자료로 시각 차이가 큽니다.",
+    "map": "entries/2026-09-24_1502Z/",
+    "composite": "entries/2026-09-24_1502Z/composite.webp",
+    "thumb": "entries/2026-09-24_1502Z/thumb.jpg",
+    "sources": [
+      "entries/2026-09-24_1502Z/sources/awc_sigmet.png",
+      "entries/2026-09-24_1502Z/sources/fr24_SQ308.png",
+      "entries/2026-09-24_1502Z/sources/ventusky_radar.png",
+      "entries/2026-09-24_1502Z/sources/ventusky_wind200hpa.png"
+    ],
+    "round": 3,
+    "tags": [
+      "SQ308",
+      "SIN→LHR",
+      "항적",
+      "SIGMET",
+      "레이더",
+      "제트기류"
+    ],
+    "version": 1790304590
+  },
+  {
     "id": "2026-09-23_0700Z",
     "title": "유럽·중동 항로 EK1 DXB→LHR",
     "time_utc": "2026-09-23T07:00Z",
@@ -24,31 +50,6 @@
       "제트기류"
     ],
     "version": 1790304580
-  },
-  {
-    "id": "2026-09-24_1502Z",
-    "title": "남아시아·중동·유럽 항로 SQ308 SIN→LHR",
-    "time_utc": "2026-09-24T15:02Z",
-    "registered": "2026-09-25",
-    "memo": "SQ308(SIA308) 싱가포르→런던 항적에 SIGMET(FL360)·기상레이더·제트기류(200 hPa)를 중첩. 항적 9/24 15:02 UTC, SIGMET 9/24 08:00 UTC, Ventusky 9/23 23:00 UTC 자료로 시각 차이가 큽니다.",
-    "map": "entries/2026-09-24_1502Z/",
-    "composite": "entries/2026-09-24_1502Z/composite.webp",
-    "thumb": "entries/2026-09-24_1502Z/thumb.jpg",
-    "sources": [
-      "entries/2026-09-24_1502Z/sources/awc_sigmet.png",
-      "entries/2026-09-24_1502Z/sources/fr24_SQ308.png",
-      "entries/2026-09-24_1502Z/sources/ventusky_radar.png",
-      "entries/2026-09-24_1502Z/sources/ventusky_wind200hpa.png"
-    ],
-    "tags": [
-      "SQ308",
-      "SIN→LHR",
-      "항적",
-      "SIGMET",
-      "레이더",
-      "제트기류"
-    ],
-    "version": 1790302135
   },
   {
     "id": "2026-09-23_1330Z",
