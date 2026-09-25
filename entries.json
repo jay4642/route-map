@@ -34,7 +34,7 @@
     "title": "남아시아·중동·유럽 항로 SQ308 SIN→LHR",
     "time_utc": "2026-09-24T15:02Z",
     "registered": "2026-09-25",
-    "memo": "SQ308(SIA308) 싱가포르→런던 항적에 SIGMET(FL360)·기상레이더·제트기류(200 hPa)를 중첩. 항적 9/24 15:02 UTC, SIGMET 9/24 08:00 UTC, Ventusky 9/23 23:00 UTC 자료로 시각 차이가 큽니다.",
+    "memo": "SQ308(SIA308) 싱가포르→런던 항적에 SIGMET(FL360)·기상레이더·제트기류·풍향 유선(200 hPa)을 중첩. 기상 자료는 모두 9/24 08:00 UTC, 항적은 15:02 UTC로 약 7시간 차이가 있습니다.",
     "map": "entries/2026-09-24_1502Z/",
     "composite": "entries/2026-09-24_1502Z/composite.webp",
     "thumb": "entries/2026-09-24_1502Z/thumb.jpg",
@@ -53,7 +53,7 @@
       "레이더",
       "제트기류"
     ],
-    "version": 1790304590
+    "version": 1790306728
   },
   {
     "id": "2026-09-23_1756Z",
