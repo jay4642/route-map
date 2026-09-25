@@ -430,6 +430,9 @@ def ext_sigmet(img, valid, p, ctx):
         if len(c) < 3:
             continue
         uv = F.from_src(c, g)
+        uv = np.clip(uv, [0, 0], [F.W, F.H])            # 지도 범위 밖으로 튀어나가지 않게
+        if cv2.contourArea(uv.astype(np.float32)) < 20:
+            continue
         x0, y0 = np.floor(uv.min(0)).astype(int) - 2      # 라벨 위치: 다각형 안에서 가장자리와 가장 먼 점
         x1, y1 = np.ceil(uv.max(0)).astype(int) + 3
         m = np.zeros((y1 - y0, x1 - x0), np.uint8)
