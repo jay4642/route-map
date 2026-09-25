@@ -15,7 +15,7 @@
  },
  "sources": [
   {
-   "file": "inbox/fr24_SQ308.webp",
+   "file": "inbox/fr24_SQ308.png",
    "georef": [
     452.036,
     696.032,
@@ -144,7 +144,7 @@
    ]
   },
   {
-   "file": "inbox/awc_sigmet.webp",
+   "file": "inbox/awc_sigmet.png",
    "georef": [
     537.989,
     422.197,
@@ -237,7 +237,7 @@
    ]
   },
   {
-   "file": "inbox/ventusky_radar.webp",
+   "file": "inbox/ventusky_radar.png",
    "georef": [
     453.018,
     589.712,
@@ -385,7 +385,7 @@
    ]
   },
   {
-   "file": "inbox/ventusky_wind200hpa.webp",
+   "file": "inbox/ventusky_wind200hpa.png",
    "georef": [
     453.018,
     626.532,
@@ -492,6 +492,19 @@
       ]
      ],
      "alpha": 0.7
+    },
+    {
+     "id": "flow",
+     "kind": "flow",
+     "thr": 10,
+     "span": 35,
+     "halo": 0.45,
+     "opacity": 0.9,
+     "static_ref": "inbox/ventusky_radar.png",
+     "static_offset": [
+      36.82,
+      4.2
+     ]
     }
    ]
   }
@@ -500,6 +513,7 @@
   "base",
   "grid",
   "jet",
+  "flow",
   "radar",
   "sigmet",
   "track"
@@ -577,7 +591,7 @@
    "label": "제트기류 (200 hPa ≈ 12,000 m)",
    "swatch": "#901B4D",
    "time": "2026-09-23 23:00",
-   "meta": "Ventusky 풍속 (ICON) · <b>23:00 UTC</b> (9/23)<br>약 100 km/h(≈54 kt) 이상 구간만 표시, 풍향 유선(흰 줄)은 제거",
+   "meta": "Ventusky 풍속 (ICON) · <b>23:00 UTC</b> (9/23)<br>약 100 km/h(≈54 kt) 이상 구간만 표시, 풍향 유선은 아래 '풍향 유선' 레이어로 따로 표시",
    "scale": [
     [
      "rgb(200,79,117)",
@@ -609,6 +623,13 @@
     76
    ],
    "scale2_unit": "kt"
+  },
+  {
+   "id": "flow",
+   "label": "풍향 유선 (200 hPa)",
+   "swatch": "#B8C4D0",
+   "meta": "Ventusky 풍속 화면의 흰 유선만 뽑아 표시 · 바람이 흐르는 방향과 모양<br>국경선·지명 등 고정 요소는 레이더 화면과 비교해 제외",
+   "time": "2026-09-23 23:00"
   },
   {
    "id": "grid",

@@ -68,6 +68,15 @@
       ]
      ],
      "alpha": 0.7
+    },
+    {
+     "id": "flow",
+     "kind": "flow",
+     "thr": 10,
+     "span": 35,
+     "halo": 0.45,
+     "opacity": 0.9,
+     "erode_valid": 3
     }
    ]
   },
@@ -269,6 +278,7 @@
   "base",
   "grid",
   "jet",
+  "flow",
   "aurora",
   "radar",
   "sigmet",
@@ -351,7 +361,7 @@
    "label": "제트기류 (200 hPa ≈ 12,000 m)",
    "swatch": "#901B4D",
    "time": "14:00",
-   "meta": "Ventusky 풍속 (ICON) · <b>14:00</b> 표시 시각<br>약 105 km/h(≈57 kt) 이상 구간만 표시, 풍향 유선(흰 줄)은 제거",
+   "meta": "Ventusky 풍속 (ICON) · <b>14:00</b> 표시 시각<br>약 105 km/h(≈57 kt) 이상 구간만 표시, 풍향 유선은 아래 '풍향 유선' 레이어로 따로 표시",
    "scale": [
     [
      "rgb(166,62,98)",
@@ -378,6 +388,13 @@
     76
    ],
    "scale2_unit": "kt"
+  },
+  {
+   "id": "flow",
+   "label": "풍향 유선 (200 hPa)",
+   "swatch": "#B8C4D0",
+   "meta": "기존 제트기류 레이어에 남아 있던 흰 유선을 뽑아 표시<br>원본 캡처가 없어 제트 구간(≈105 km/h 이상) 안에서만 보입니다",
+   "time": "14:00"
   },
   {
    "id": "aurora",

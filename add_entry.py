@@ -52,7 +52,7 @@ NAV_TEMPLATE = """
     a.title=(e.title||'')+' · '+(e.time_utc||''); old.replaceWith(a);
   }}
   fetch('../../entries.json',{{cache:'no-cache'}}).then(function(r){{return r.json();}}).then(function(d){{
-    var list=(Array.isArray(d)?d:d.entries||[]).slice().sort(function(a,b){{return (a.time_utc||'').localeCompare(b.time_utc||'');}});
+    var list=(Array.isArray(d)?d:d.entries||[]).slice().sort(function(a,b){{return ((a.round||0)-(b.round||0))||(a.time_utc||'').localeCompare(b.time_utc||'');}});
     var i=list.findIndex(function(e){{return e.id===id;}}); if(i<0) return;
     link('prev',list[i-1]); link('next',list[i+1]);
   }}).catch(function(){{}});
@@ -88,8 +88,12 @@ def load_entries():
     return []
 
 
+def sort_key(e):
+    return (e.get("round") or 0, e["time_utc"])
+
+
 def save_entries(entries):
-    entries.sort(key=lambda e: e["time_utc"], reverse=True)
+    entries.sort(key=sort_key, reverse=True)               # 최신 회차(번호 큰 것)가 앞
     ENTRIES_JSON.write_text(json.dumps(entries, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
@@ -180,6 +184,7 @@ def main():
     ap.add_argument("--time", help='기준시각 UTC, 예: "2026-09-23 1330"')
     ap.add_argument("--title")
     ap.add_argument("--memo")
+    ap.add_argument("--round", type=int, help="회차 번호 (예: 3)")
     ap.add_argument("--tags", help='추가 태그(쉼표 구분), 예: "OZ222,ICN→JFK"')
     ap.add_argument("--yes", action="store_true", help="확인 질문에 모두 예")
     ap.add_argument("--no-push", action="store_true", help="git commit/push 생략")
@@ -212,6 +217,9 @@ def main():
 
     entries = load_entries()
     prev = next((e for e in entries if e["id"] == entry_id), {})
+    if args.round is None:
+        default = prev.get("round") or max([e.get("round") or 0 for e in entries] + [0]) + 1
+        args.round = int(ask("회차 번호", str(default)))
     if args.tags is None:
         old = [t for t in prev.get("tags", []) if t not in LAYER_TAGS.values()]
         args.tags = ask("태그 (쉼표 구분, 예: 편명·구간, 없으면 Enter)", ",".join(old))
@@ -258,6 +266,7 @@ def main():
         "composite": f"{base}/composite.webp",
         "thumb": f"{base}/thumb.jpg",
         "sources": sources,
+        "round": args.round,
         "tags": extra + [t for t in layer_tags(html) if t not in extra],
         "version": int(time.time()),              # 링크에 붙여 브라우저 캐시를 피한다
     })

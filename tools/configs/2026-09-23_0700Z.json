@@ -440,6 +440,19 @@
       ]
      ],
      "alpha": 0.7
+    },
+    {
+     "id": "flow",
+     "kind": "flow",
+     "thr": 10,
+     "span": 35,
+     "halo": 0.45,
+     "opacity": 0.9,
+     "static_ref": "inbox/ventusky_radar.png",
+     "static_offset": [
+      0,
+      0
+     ]
     }
    ]
   }
@@ -448,6 +461,7 @@
   "base",
   "grid",
   "jet",
+  "flow",
   "radar",
   "sigmet",
   "track"
@@ -524,7 +538,7 @@
    "id": "jet",
    "label": "제트기류 (200 hPa ≈ 12,000 m)",
    "swatch": "#901B4D",
-   "meta": "Ventusky 풍속 (ICON) · <b>07:00</b> 표시 시각<br>약 100 km/h(≈54 kt) 이상 구간만 표시, 풍향 유선(흰 줄)은 제거",
+   "meta": "Ventusky 풍속 (ICON) · <b>07:00</b> 표시 시각<br>약 100 km/h(≈54 kt) 이상 구간만 표시, 풍향 유선은 아래 '풍향 유선' 레이어로 따로 표시",
    "scale": [
     [
      "rgb(200,79,117)",
@@ -557,6 +571,13 @@
     76
    ],
    "scale2_unit": "kt"
+  },
+  {
+   "id": "flow",
+   "label": "풍향 유선 (200 hPa)",
+   "swatch": "#B8C4D0",
+   "meta": "Ventusky 풍속 화면의 흰 유선만 뽑아 표시 · 바람이 흐르는 방향과 모양<br>국경선·지명 등 고정 요소는 레이더 화면과 비교해 제외",
+   "time": "07:00"
   },
   {
    "id": "grid",

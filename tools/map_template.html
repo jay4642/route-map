@@ -182,7 +182,7 @@ kbd{font:inherit;font-size:11px;border:1px solid var(--rule);border-bottom-width
   const boxes=[...document.querySelectorAll('.layer input[type=checkbox]')];
   const chips=$('chips');
   boxes.forEach((c,i)=>{
-    const SHORT={track:'항적',sigmet:'SIGMET',radar:'레이더',jet:'제트기류',aurora:'오로라',grid:'격자'};
+    const SHORT={track:'항적',sigmet:'SIGMET',radar:'레이더',jet:'제트기류',flow:'풍향 유선',aurora:'오로라',grid:'격자'};
     const lab=SHORT[c.id.slice(2)]||document.querySelector(`label[for="${c.id}"]`).textContent.replace(/\s*\(.*$/,'');
     const sw=c.parentElement.querySelector('.swatch').style.background;
     const b=document.createElement('button'); b.type='button'; b.setAttribute('aria-pressed',c.checked);

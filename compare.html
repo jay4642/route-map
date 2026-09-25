@@ -78,7 +78,7 @@ button:focus-visible,select:focus-visible,a:focus-visible,input:focus-visible{ou
     return `${d.getUTCFullYear()}-${p(d.getUTCMonth()+1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}${p(d.getUTCMinutes())} UTC`;};
   let entries=[], mode='pair';
   const qs=new URLSearchParams(location.search);
-  function info(e,tag){return `<div class="info"><div class="t">${tag} · ${fmt(e.time_utc)}</div><h2>${esc(e.title)}</h2>
+  function info(e,tag){return `<div class="info"><div class="t">${tag}${e.round?' · '+e.round+'회차':''} · ${fmt(e.time_utc)}</div><h2>${esc(e.title)}</h2>
     ${e.memo?`<p>${esc(e.memo)}</p>`:''}${(e.tags||[]).length?`<div class="tags">${e.tags.map(t=>`<span>${esc(t)}</span>`).join('')}</div>`:''}
     <a href="${esc(ver(e,e.map))}">지도 열기 →</a></div>`;}
   function render(){
@@ -111,8 +111,8 @@ button:focus-visible,select:focus-visible,a:focus-visible,input:focus-visible{ou
   $('m-pair').onclick=()=>setMode('pair'); $('m-swipe').onclick=()=>setMode('swipe');
   $('a').onchange=render; $('b').onchange=render;
   fetch('entries.json',{cache:'no-cache'}).then(r=>r.json()).then(d=>{
-    entries=(Array.isArray(d)?d:d.entries||[]).slice().sort((x,y)=>(y.time_utc||'').localeCompare(x.time_utc||''));
-    const opts=entries.map(e=>`<option value="${esc(e.id)}">${fmt(e.time_utc)} · ${esc(e.title)}</option>`).join('');
+    entries=(Array.isArray(d)?d:d.entries||[]).slice().sort((x,y)=>((y.round||0)-(x.round||0))||(y.time_utc||'').localeCompare(x.time_utc||''));
+    const opts=entries.map(e=>`<option value="${esc(e.id)}">${e.round?e.round+'회차 · ':''}${fmt(e.time_utc)} · ${esc(e.title)}</option>`).join('');
     $('a').innerHTML=opts; $('b').innerHTML=opts;
     const a=qs.get('a')&&entries.some(e=>e.id===qs.get('a'))?qs.get('a'):entries[0]?.id;
     const b=qs.get('b')&&entries.some(e=>e.id===qs.get('b'))?qs.get('b'):(entries.find(e=>e.id!==a)||entries[0])?.id;

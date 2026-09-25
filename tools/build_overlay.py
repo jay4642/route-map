@@ -264,6 +264,41 @@ def ext_jet(img, valid, p, ctx):
     return np.dstack([cl, (a * 255).astype(np.uint8)])
 
 
+def ext_flow(img, valid, p, ctx):
+    """풍향 유선: 풍속 화면의 흰 유선만 뽑아 흰 선 + 옅은 어두운 테두리로 그린다.
+
+    국경선·지명처럼 화면에 고정된 흰 요소는 같은 구도의 다른 캡처(static_ref, 예: 레이더 화면)에도 있으므로
+    두 화면에 모두 밝게 나타나는 픽셀은 뺀다. static_offset 은 ref 대비 이 화면의 이동량(px).
+    """
+    k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (p.get("kernel", 7),) * 2)
+
+    def bright_residual(im):
+        # 흰 선은 세 채널이 모두 밝아지므로 최솟값 채널에서 가는 밝은 구조(top-hat)를 찾는다
+        mn = im.min(2)
+        return cv2.morphologyEx(mn, cv2.MORPH_TOPHAT, k).astype(np.float32)
+    if p.get("erode_valid"):
+        kk = p["erode_valid"] * 2 + 1
+        valid = cv2.erode(valid, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kk, kk)))
+    src = fill_outside(img, valid)
+    r = bright_residual(src)
+    if p.get("static_ref"):
+        ref = cv2.imread(str(ROOT / p["static_ref"]), cv2.IMREAD_COLOR)
+        dx, dy = p.get("static_offset", [0, 0])
+        ref = cv2.warpAffine(ref, np.float32([[1, 0, dx], [0, 1, dy]]), (img.shape[1], img.shape[0]),
+                             borderMode=cv2.BORDER_REPLICATE)
+        static = cv2.dilate((bright_residual(ref) > p.get("static_thr", 14)).astype(np.uint8), np.ones((3, 3), np.uint8))
+        r[static > 0] = 0
+    core = np.clip((r - p.get("thr", 12)) / p.get("span", 45), 0, 1)
+    core = clean(core > 0, min_area=p.get("min_area", 6)) * core            # 점 잡티 제거
+    core *= (valid > 0)
+    halo = np.clip(cv2.GaussianBlur(cv2.dilate(core, np.ones((3, 3), np.uint8)), (0, 0), 0.8) * p.get("halo", 0.6), 0, 1)
+    a = core + halo * (1 - core)
+    w = np.where(a > 0, core / np.maximum(a, 1e-3), 0)[..., None]
+    dark = np.array(p.get("halo_bgr", [55, 40, 30]), np.float32)
+    col = w * 255 + (1 - w) * dark
+    return np.dstack([np.clip(col, 0, 255).astype(np.uint8), (np.clip(a * p.get("opacity", 0.85), 0, 1) * 255).astype(np.uint8)])
+
+
 # ---------------------------------------------------------------- 벡터 레이어
 
 def ext_track(img, valid, p, ctx):
@@ -396,6 +431,7 @@ EXTRACTORS = {
     "base_fr24": ext_base_fr24,
     "radar": ext_radar,
     "jet": ext_jet,
+    "flow": ext_flow,
     "track": ext_track,
     "sigmet": ext_sigmet,
 }
