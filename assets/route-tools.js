@@ -157,8 +157,27 @@
     '.rt-drawing.drag{cursor:grabbing!important}',
     '#rt-btn svg{width:20px;height:20px}',
     '.rt-status{left:12px;top:58px;padding:6px 12px;font-size:12.5px;display:none;max-width:calc(100% - 76px);z-index:5}',
-    '.rt-drawing .rt-status{display:block}',
+    '.rt-drawing .rt-status,.rt-noting .rt-status{display:block}',
+    '.rt-noting{cursor:copy!important}',
+    '.rt-note{pointer-events:auto;cursor:pointer}',
+    '.rt-note:hover rect{filter:brightness(1.15)}',
+    '.rt-pop{position:absolute;z-index:6;width:250px;transform-origin:0 0;transform:scale(calc(1 / var(--s,1))) translate(-50%, calc(-100% - 38px));',
+    '  background:var(--panel);color:var(--ink);border:1px solid var(--rule);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.25);padding:10px;font-size:12.5px;cursor:auto}',
+    '.rt-pop[hidden]{display:none}',
+    '.rt-pop b{display:flex;align-items:center;gap:4px;margin-bottom:6px}',
+    '.rt-pop small{color:var(--muted);font-weight:400;margin-left:auto}',
+    '.rt-pop textarea{width:100%;box-sizing:border-box;min-height:74px;resize:vertical;font:inherit;font-size:13px;color:var(--ink);background:var(--paper);border:1px solid var(--rule);border-radius:7px;padding:6px 8px}',
+    '.rt-pop textarea:focus{outline:2px solid var(--magenta);outline-offset:0}',
+    '.rt-pop .rt-btns{margin:8px 0 0}',
+    '.rt-pop .rt-btns .pri{background:var(--magenta);border-color:var(--magenta);color:#fff;font-weight:600}',
+    '.rt-notes{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:4px}',
+    '.rt-notes li{display:flex;gap:6px;align-items:flex-start;font-size:12px;line-height:1.4}',
+    '.rt-notes li span{color:var(--ink)!important;white-space:pre-line;overflow-wrap:anywhere}',
+    '.rt-notes li span.empty{color:var(--muted)!important;font-style:italic}',
+    '.rt-nbtn{flex:none;font:inherit;font-size:11px;font-weight:700;color:#fff;border:0;border-radius:9px;padding:1px 7px;cursor:pointer}',
     '.rt-status b{color:#D9480F}',
+    '.rt-flash::after{content:"";position:absolute;inset:0;background:#fff;opacity:.6;pointer-events:none;z-index:20}',
+    '#rt-cap-btn[aria-busy] svg,#rt-note-btn svg{width:20px;height:20px}',
     '.rt-sec{border-top:1px solid var(--rule);padding:12px 0}',
     '.rt-sec h2{font-size:14px;font-weight:600;margin:0 0 6px;display:flex;align-items:center;gap:8px}',
     '.rt-sec h2 label{flex:1;cursor:pointer;display:flex;align-items:center;gap:10px}',
@@ -295,11 +314,12 @@
   map.appendChild(status);
   var keys = aside.querySelector('.keys');
   if (keys) keys.innerHTML = keys.innerHTML.replace(/<kbd>M<\/kbd>[^·]*·\s*<kbd>Esc<\/kbd>[^<]*/,
-    '<kbd>M</kbd> 항로 그리기 · <kbd>Backspace</kbd> 마지막 점 취소 · <kbd>Esc</kbd> 그리기 끝');
+    '<kbd>M</kbd> 항로 그리기 · <kbd>N</kbd> 항로 메모 · <kbd>Backspace</kbd> 마지막 점 취소 · <kbd>Esc</kbd> 끝내기');
 
-  var drawing = false;
+  var drawing = false, noting = false;
   function setDrawing(on) {
     drawing = on;
+    if (on && noting) setNoting(false);
     map.classList.toggle('rt-drawing', on);
     btn.setAttribute('aria-pressed', on);
     syncButtons(); updateStatus();
@@ -311,6 +331,7 @@
     var sv = document.getElementById('rt-save'); if (sv) sv.disabled = pts.length < 2;
   }
   function updateStatus() {
+    if (noting) { status.innerHTML = '<b>메모 달기</b> · 제안 항로 선 위를 누르면 메모 칸이 열립니다 · <kbd>Esc</kbd> 끝'; return; }
     status.innerHTML = '<b>항로 그리기</b> · 지도를 눌러 점 추가 · ' + pts.length + '점' + (pts.length > 1 ? ' · 총 ' + fmtPair(curveKm(smoothCurve(pts))) : '');
   }
   btn.addEventListener('click', function () { setDrawing(!drawing); });
@@ -331,7 +352,7 @@
   var down = null, active = {}, nActive = 0;
   map.addEventListener('pointerdown', function (e) {
     if (!(e.pointerId in active)) { active[e.pointerId] = 1; nActive++; }
-    if (!drawing || e.button > 0 || nActive > 1 || e.target.closest('button,.chips,.readout,.zoom,.rt-status,.wp')) { down = null; return; }
+    if (!(drawing || noting) || e.button > 0 || nActive > 1 || e.target.closest('button,.chips,.readout,.zoom,.rt-status,.wp,.rt-note,.rt-pop')) { down = null; return; }
     down = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false };
   });
   map.addEventListener('pointermove', function (e) {
@@ -339,7 +360,8 @@
   });
   function release(e) {
     if (e.pointerId in active) { delete active[e.pointerId]; nActive--; }
-    if (e.type === 'pointerup' && down && e.pointerId === down.id && !down.moved && drawing) {
+    if (e.type === 'pointerup' && down && e.pointerId === down.id && !down.moved && noting) addNoteAt(e.clientX, e.clientY);
+    else if (e.type === 'pointerup' && down && e.pointerId === down.id && !down.moved && drawing) {
       var ll = clientToLL(e.clientX, e.clientY);
       if (Math.abs(ll[0]) <= 85) { pts.push(ll); renderAll(); }
     }
@@ -389,7 +411,10 @@
   window.addEventListener('keydown', function (e) {
     var t = e.target;
     if ((t instanceof Element && t.closest('input,textarea,select,[contenteditable]')) || e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.key === 'm' || e.key === 'M') { setDrawing(!drawing); }
+    if (e.key === 'Escape' && !pop.hidden) { closePop(); }
+    else if (e.key === 'm' || e.key === 'M') { setDrawing(!drawing); }
+    else if (e.key === 'n' || e.key === 'N') { setNoting(!noting); }
+    else if (e.key === 'Escape' && noting) { setNoting(false); }
     else if (e.key === 'Backspace' && drawing) { if (pts.length) { pts.pop(); renderAll(); } }
     else if (e.key === 'Escape' && drawing) { setDrawing(false); }
     else return;
@@ -439,16 +464,25 @@
   // ------------------------------------------------------------------ 1. 제안 항로 A·B·C·D… (추가·켜기/끄기·삭제)
   var RKEY = KEY + ':routes', LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   var PALETTE = ['#6B2FB3', '#1F4E8C', '#0F8B6C', '#C2410C', '#B8860B', '#BE185D', '#0E7490', '#4D7C0F'];
-  var baseRoutes = [], rs = { user: [], removed: [], hidden: [] };
+  var baseRoutes = [], rs = { user: [], removed: [], hidden: [], notes: {} };
   try {
     var rv = JSON.parse(localStorage.getItem(RKEY) || 'null');
     if (rv && typeof rv === 'object') {
       rs.user = (rv.user || []).filter(function (r) { return r && r.id && Array.isArray(r.points) && r.points.filter(validPt).length > 1; });
       rs.removed = Array.isArray(rv.removed) ? rv.removed : [];
       rs.hidden = Array.isArray(rv.hidden) ? rv.hidden : [];
+      rs.notes = rv.notes && typeof rv.notes === 'object' ? rv.notes : {};
+      Object.keys(rs.notes).forEach(function (id) { rs.notes[id] = (rs.notes[id] || []).filter(function (n) { return n && n.text && isFinite(n.lat) && isFinite(n.lon); }); });
     }
   } catch (e) {}
-  function saveRoutes() { try { localStorage.setItem(RKEY, JSON.stringify(rs)); } catch (e) {} }
+  function saveRoutes() {                                         // 이유를 적지 않은 빈 메모는 저장하지 않는다
+    var notes = {};
+    Object.keys(rs.notes).forEach(function (id) {
+      var ns = (rs.notes[id] || []).filter(function (n) { return n && n.text; });
+      if (ns.length) notes[id] = ns;
+    });
+    try { localStorage.setItem(RKEY, JSON.stringify({ user: rs.user, removed: rs.removed, hidden: rs.hidden, notes: notes })); } catch (e) {}
+  }
   function allRoutes() {
     return baseRoutes.filter(function (r) { return rs.removed.indexOf(r.id) < 0; }).concat(rs.user)
       .sort(function (a, b) { return a.id.length - b.id.length || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0); });
@@ -490,14 +524,14 @@
     // 같은 곳에서 끝나는 항로 라벨이 겹치지 않게 순서대로 한 줄씩 내림
     sugSvg.innerHTML = shown.map(function (r, k) {
       return curveSvg(routeLL(r), r.color || colorOf(r.id), r.style === 'dash', fmtPair(routeKm(r)), r.id, k * 16);
-    }).join('');
+    }).join('') + shown.map(noteMarkers).join('');
     var box = document.getElementById('rt-sug-list');
     box.innerHTML = (list.length ? list.map(function (r) {
       var c = r.color || colorOf(r.id), on = rs.hidden.indexOf(r.id) < 0;
       return '<div class="rt-route"><input type="checkbox" data-show="' + esc(r.id) + '"' + (on ? ' checked' : '') + ' aria-label="' + esc(r.id) + ' 표시">' +
         '<i class="ln' + (r.style === 'dash' ? ' dash' : '') + '" style="border-color:' + esc(c) + '"></i>' +
         '<div><b><span class="rt-badge" style="background:' + esc(c) + '">' + esc(r.id) + '</span>' + esc(r.name) + '</b><br>총 ' + fmtPair(routeKm(r)) +
-        (r.smooth ? ' <span>(' + r.points.length + '점 곡선)</span>' : '') + '</div>' +
+        (r.smooth ? ' <span>(' + r.points.length + '점 곡선)</span>' : '') + noteList(r) + '</div>' +
         '<button type="button" class="rt-del" data-del="' + esc(r.id) + '" aria-label="' + esc(r.id) + ' ' + esc(r.name) + ' 삭제">삭제</button></div>';
     }).join('') : '<div class="rt-empty">제안 항로가 없습니다. 아래에서 항로를 그린 뒤 <b>제안 항로로 추가</b>를 누르세요.</div>') +
       (rs.removed.some(function (id) { return baseRoutes.some(function (r) { return r.id === id; }); })
@@ -517,6 +551,7 @@
     if (!window.confirm('제안 항로 ' + id + ' (' + r.name + ')를 삭제할까요?')) return;
     if (rs.user.some(function (x) { return x.id === id; })) rs.user = rs.user.filter(function (x) { return x.id !== id; });
     else rs.removed.push(id);
+    delete rs.notes[id]; if (pop.rid === id) closePop();
     rs.hidden = rs.hidden.filter(function (x) { return x !== id; });
     saveRoutes(); renderRoutes();
   });
@@ -530,6 +565,208 @@
     saveRoutes(); pts = []; renderAll(); renderRoutes();
     if (!sugOn.checked) { sugOn.checked = true; sugOn.dispatchEvent(new Event('change')); }
   };
+
+  // ------------------------------------------------------------------ 3. 제안 항로 메모 (선 위의 점 + 이유 적는 칸)
+  var pop = document.createElement('div');
+  pop.className = 'rt-pop'; pop.hidden = true; pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-label', '항로 메모');
+  stack.appendChild(pop);
+  ['pointerdown', 'wheel', 'dblclick'].forEach(function (t) { pop.addEventListener(t, function (e) { e.stopPropagation(); }); });
+  function notesOf(id) { return Array.isArray(rs.notes[id]) ? rs.notes[id] : (rs.notes[id] = []); }
+  function routeById(id) { return allRoutes().filter(function (r) { return r.id === id; })[0]; }
+  function noteXY(r, n) {                                           // 항로 선이 이어 붙여진 쪽(±360°)에 맞춰 위치 계산
+    var xy = toXY(n.lat, n.lon), line = pathXY(routeLL(r)), best = xy, bd = Infinity;
+    [-PERIOD, 0, PERIOD].forEach(function (sh) {
+      for (var i = 0; i < line.length; i += 4) {
+        var d = Math.hypot(line[i][0] - xy[0] - sh, line[i][1] - xy[1]);
+        if (d < bd) { bd = d; best = [xy[0] + sh, xy[1]]; }
+      }
+    });
+    return best;
+  }
+  function noteMarkers(r) {
+    var c = r.color || colorOf(r.id);
+    return notesOf(r.id).map(function (n, k) {
+      var xy = noteXY(r, n), tag = r.id + (k + 1), w = 10 + tag.length * 7.5;
+      return '<g class="rt-note" data-r="' + esc(r.id) + '" data-k="' + k + '" style="' + at(xy[0], xy[1]) + '"><title>' + esc(tag + ': ' + (n.text || '(빈 메모)')) + '</title>' +
+        '<circle r="4" fill="#fff" stroke="' + esc(c) + '" stroke-width="2.4"/>' +
+        '<path d="M-5,-13 L0,-5 L5,-13 Z" fill="' + esc(c) + '"/>' +
+        '<rect x="' + (-w / 2) + '" y="-31" width="' + w + '" height="19" rx="9.5" fill="' + esc(c) + '" stroke="#fff" stroke-width="1.5"/>' +
+        '<text y="-17.5" text-anchor="middle" font-size="11.5" font-weight="700" fill="#fff">' + esc(tag) + '</text>' +
+        (n.text ? '' : '<circle cx="' + (w / 2 - 1) + '" cy="-29" r="3.5" fill="#fff" stroke="' + esc(c) + '" stroke-width="1.5"/>') + '</g>';
+    }).join('');
+  }
+  function noteList(r) {
+    var ns = notesOf(r.id); if (!ns.length) return '';
+    var c = r.color || colorOf(r.id);
+    return '<ol class="rt-notes">' + ns.map(function (n, k) {
+      return '<li><button type="button" class="rt-nbtn" style="background:' + esc(c) + '" data-note="' + esc(r.id) + '|' + k + '" title="지도에서 메모 열기">' + esc(r.id + (k + 1)) + '</button>' +
+        (n.text ? '<span>' + esc(n.text) + '</span>' : '<span class="empty">(아직 이유를 적지 않음)</span>') + '</li>';
+    }).join('') + '</ol>';
+  }
+  function setNoting(on) {
+    noting = on;
+    if (on && drawing) setDrawing(false);
+    map.classList.toggle('rt-noting', on);
+    noteBtn.setAttribute('aria-pressed', on);
+    if (on && !sugOn.checked) { sugOn.checked = true; sugOn.dispatchEvent(new Event('change')); }
+    updateStatus();
+  }
+  function flashStatus(msg) {
+    status.innerHTML = msg; clearTimeout(flashStatus.t);
+    flashStatus.t = setTimeout(updateStatus, 2200);
+  }
+  function addNoteAt(cx, cy) {
+    if (!sugOn.checked) return;
+    var m = clientToMap(cx, cy), sc = stack.getBoundingClientRect().width / P.W, best = null;
+    allRoutes().filter(function (r) { return rs.hidden.indexOf(r.id) < 0; }).forEach(function (r) {
+      var line = pathXY(routeLL(r));
+      [-PERIOD, 0, PERIOD].forEach(function (sh) {
+        for (var i = 0; i + 1 < line.length; i++) {                 // 선분에 수직으로 내린 점(선 위의 가장 가까운 점)
+          var ax = line[i][0] + sh, ay = line[i][1], bx = line[i + 1][0] + sh, by = line[i + 1][1];
+          var vx = bx - ax, vy = by - ay, L = vx * vx + vy * vy, t = L ? ((m[0] - ax) * vx + (m[1] - ay) * vy) / L : 0;
+          t = Math.max(0, Math.min(1, t));
+          var px = ax + t * vx, py = ay + t * vy, d = Math.hypot(m[0] - px, m[1] - py) * sc;
+          if (!best || d < best.d) best = { d: d, r: r, x: px, y: py };
+        }
+      });
+    });
+    if (!best || best.d > 14) { flashStatus('<b>메모 달기</b> · 제안 항로 <b>선 가까이</b>를 눌러 주세요'); return; }
+    var ll = toLL(best.x, best.y), ns = notesOf(best.r.id);
+    ns.push({ lat: +ll[0].toFixed(5), lon: +ll[1].toFixed(5), text: '', ts: new Date().toISOString() });
+    saveRoutes(); renderRoutes(); openPop(best.r.id, ns.length - 1, true);
+  }
+  function openPop(rid, k, isNew) {
+    var r = routeById(rid), n = r && notesOf(rid)[k]; if (!n) return;
+    if (rs.hidden.indexOf(rid) >= 0) { rs.hidden = rs.hidden.filter(function (x) { return x !== rid; }); saveRoutes(); renderRoutes(); }
+    if (!sugOn.checked) { sugOn.checked = true; sugOn.dispatchEvent(new Event('change')); }
+    var xy = noteXY(r, n), c = r.color || colorOf(rid);
+    pop.rid = rid; pop.k = k; pop.isNew = !!isNew;
+    pop.style.left = xy[0] + 'px'; pop.style.top = xy[1] + 'px';
+    pop.innerHTML = '<b><span class="rt-badge" style="background:' + esc(c) + ';color:#fff">' + esc(rid + (k + 1)) + '</span>' + esc(r.name) +
+      '<small>' + fmtLat(n.lat) + ' ' + fmtLon(n.lon) + '</small></b>' +
+      '<label class="sr" for="rt-pop-text" style="position:absolute;left:-9999px">왜 이렇게 바꿨는지</label>' +
+      '<textarea id="rt-pop-text" maxlength="500" placeholder="왜 이 구간을 이렇게 바꿨는지 적어 주세요 (예: 제트기류 뒷바람 활용, SIGMET 회피)">' + esc(n.text || '') + '</textarea>' +
+      '<div class="rt-btns"><button type="button" class="pri" data-a="save">저장</button><button type="button" data-a="del">메모 삭제</button><button type="button" data-a="close">닫기</button></div>';
+    pop.hidden = false;
+    var ta = pop.querySelector('textarea');
+    ta.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { e.preventDefault(); closePop(); }
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); savePop(); }
+    });
+    // 지도 클릭이 끝난 뒤(click 이벤트 이후)에 초점을 줘야 입력이 바로 들어간다
+    setTimeout(function () { ta.focus({ preventScroll: true }); ta.setSelectionRange(ta.value.length, ta.value.length); }, 60);
+  }
+  function savePop() {
+    var ns = notesOf(pop.rid), n = ns[pop.k]; if (!n) return closePop();
+    n.text = pop.querySelector('textarea').value.trim();
+    if (!n.text && pop.isNew) ns.splice(pop.k, 1);                  // 새 메모를 비워 두고 저장하면 만들지 않음
+    pop.isNew = false; saveRoutes(); pop.hidden = true; renderRoutes();
+  }
+  function closePop() {
+    if (pop.hidden) return;
+    var ns = notesOf(pop.rid), n = ns[pop.k];
+    if (n && pop.isNew && !n.text) { ns.splice(pop.k, 1); saveRoutes(); renderRoutes(); }
+    pop.hidden = true;
+  }
+  pop.addEventListener('click', function (e) {
+    var a = e.target.getAttribute && e.target.getAttribute('data-a'); if (!a) return;
+    if (a === 'save') savePop();
+    else if (a === 'close') closePop();
+    else if (a === 'del') { notesOf(pop.rid).splice(pop.k, 1); saveRoutes(); pop.hidden = true; renderRoutes(); }
+  });
+  sugSvg.addEventListener('pointerdown', function (e) { if (e.target.closest('.rt-note')) { e.stopPropagation(); } });
+  sugSvg.addEventListener('click', function (e) {
+    var g = e.target.closest('.rt-note'); if (!g) return;
+    e.stopPropagation(); openPop(g.getAttribute('data-r'), +g.getAttribute('data-k'), false);
+  });
+  sugSec.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-note]'); if (!b) return;
+    var v = b.getAttribute('data-note').split('|'); openPop(v[0], +v[1], false);
+    if (window.matchMedia('(max-width:800px)').matches) { var h = document.getElementById('handle'); if (h && aside.classList.contains('open')) h.click(); }
+  });
+  sugOn.addEventListener('change', function () { if (!sugOn.checked) closePop(); });
+
+  var noteBtn = document.createElement('button');
+  noteBtn.id = 'rt-note-btn'; noteBtn.type = 'button'; noteBtn.setAttribute('aria-pressed', 'false');
+  noteBtn.setAttribute('aria-label', '항로 메모 달기'); noteBtn.title = '제안 항로에 메모 달기 (N)';
+  noteBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12.5h5"/></svg>';
+  noteBtn.addEventListener('click', function () { setNoting(!noting); });
+  if (zoom) zoom.appendChild(noteBtn);
+
+  // ------------------------------------------------------------------ 4. 지도 캡처 (지금 보이는 화면을 PNG 로)
+  var capBtn = document.createElement('button');
+  capBtn.id = 'rt-cap-btn'; capBtn.type = 'button';
+  capBtn.setAttribute('aria-label', '지도 캡처'); capBtn.title = '지금 보이는 지도를 PNG로 저장';
+  capBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l1.6-2.5h6.8L17 8h3v11H4z"/><circle cx="12" cy="13.2" r="3.4"/></svg>';
+  if (zoom) zoom.appendChild(capBtn);
+  function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+  function svgForCanvas(svg, sc) {                                  // 화면과 같은 굵기·글자 크기로 고정해서 이미지로 만든다
+    var c = svg.cloneNode(true);
+    c.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    c.setAttribute('width', P.W); c.setAttribute('height', P.H);
+    c.setAttribute('style', 'font-family:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;overflow:visible');
+    var str = new XMLSerializer().serializeToString(c)
+      .replace(/calc\(\s*([\d.]+)px\s*\/\s*var\(--s,\s*1\)\s*\)/g, function (_, v) { return (+v / sc).toFixed(3) + 'px'; })
+      .replace(/scale\(\s*calc\(\s*1\s*\/\s*var\(--s,\s*1\)\s*\)\s*\)/g, 'scale(' + (1 / sc).toFixed(4) + ')')
+      .replace(/var\((--[\w-]+)(?:,[^)]*)?\)/g, function (_, v) { return cssVar(v) || '#000'; })
+      .replace(/font-family:\s*inherit;?/g, '');
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(str);
+  }
+  function loadImg(src) {
+    return new Promise(function (ok, no) { var im = new Image(); im.onload = function () { ok(im); }; im.onerror = no; im.src = src; });
+  }
+  function capture() {
+    var mr = map.getBoundingClientRect(), sr = stack.getBoundingClientRect(), sc = sr.width / P.W;
+    var k = Math.max(2, window.devicePixelRatio || 1), foot = 44;
+    var cv = document.createElement('canvas');
+    cv.width = Math.round(mr.width * k); cv.height = Math.round((mr.height + foot) * k);
+    var ctx = cv.getContext('2d');
+    ctx.fillStyle = getComputedStyle(map).backgroundColor || '#6ACFE3';
+    ctx.fillRect(0, 0, cv.width, cv.height);
+    var layers = Array.prototype.filter.call(stack.children, function (el) {
+      var cs = getComputedStyle(el);
+      return cs.display !== 'none' && cs.visibility !== 'hidden' && (el.tagName === 'IMG' || (el.tagName.toLowerCase() === 'svg' && el.innerHTML.trim()));
+    });
+    var jobs = layers.map(function (el) { return el.tagName === 'IMG' ? Promise.resolve(el) : loadImg(svgForCanvas(el, sc)); });
+    capBtn.disabled = true; capBtn.setAttribute('aria-busy', 'true');
+    return Promise.all(jobs).then(function (imgs) {
+      ctx.save();
+      ctx.beginPath(); ctx.rect(0, 0, cv.width, mr.height * k); ctx.clip();
+      ctx.setTransform(k * sc, 0, 0, k * sc, k * (sr.left - mr.left), k * (sr.top - mr.top));
+      imgs.forEach(function (im, i) {
+        ctx.globalAlpha = parseFloat(getComputedStyle(layers[i]).opacity) || 0;
+        ctx.drawImage(im, 0, 0, P.W, P.H);
+      });
+      ctx.restore();
+      // 아래 띠: 제목 · 표시 중인 제안 항로 · 캡처 시각
+      ctx.setTransform(k, 0, 0, k, 0, mr.height * k);
+      ctx.fillStyle = cssVar('--panel') || '#F7F9FA'; ctx.fillRect(0, 0, mr.width, foot);
+      ctx.fillStyle = cssVar('--rule') || '#C9D2DB'; ctx.fillRect(0, 0, mr.width, 1);
+      var h1 = (aside.querySelector('h1') || {}).textContent || document.title;
+      var now = new Date(), p2 = function (v) { return String(v).padStart(2, '0'); };
+      var stamp = now.getUTCFullYear() + '-' + p2(now.getUTCMonth() + 1) + '-' + p2(now.getUTCDate()) + ' ' + p2(now.getUTCHours()) + p2(now.getUTCMinutes()) + ' UTC';
+      var shown = sugOn.checked ? allRoutes().filter(function (r) { return rs.hidden.indexOf(r.id) < 0; }) : [];
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = cssVar('--ink') || '#16283D'; ctx.font = '600 14px "IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif';
+      ctx.fillText(h1, 12, 15, mr.width - 24);
+      ctx.fillStyle = cssVar('--muted') || '#5B6B7C'; ctx.font = '12px "IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif';
+      var sub = (shown.length ? '제안 항로 ' + shown.map(function (r) { return r.id + ' ' + r.name; }).join(', ') + ' · ' : '') + '캡처 ' + stamp;
+      ctx.fillText(sub, 12, 32, mr.width - 24);
+      return new Promise(function (ok) { cv.toBlob(ok, 'image/png'); }).then(function (blob) {
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'map_' + String(entryId).replace(/[^\w-]+/g, '_') + '_' + stamp.replace(/[-: ]|UTC/g, '') + 'Z.png';
+        document.body.appendChild(a); a.click();
+        setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+        flashStatus('<b>캡처</b> · ' + a.download + ' 저장');
+        map.classList.add('rt-flash'); setTimeout(function () { map.classList.remove('rt-flash'); }, 250);
+        return blob;
+      });
+    }).catch(function (err) { window.alert('지도 캡처에 실패했습니다: ' + (err && err.message || err)); })
+      .then(function (r) { capBtn.disabled = false; capBtn.removeAttribute('aria-busy'); return r; });
+  }
+  capBtn.addEventListener('click', capture);
+
   fetch('routes.json', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; })
     .then(function (d) { baseRoutes = ((d && d.routes) || []).filter(function (r) { return r && r.id; }); renderRoutes(); })
     .catch(function () { renderRoutes(); });
@@ -538,5 +775,6 @@
   renderAll();
   window.ROUTE_TOOLS = { distKm: distKm, bearing: bearing, gcPoints: gcPoints, totalKm: totalKm, pathXY: pathXY,
     get routes() { return allRoutes(); }, curveKm: function (p) { return curveKm(smoothCurve(p)); },
-    get points() { return pts.slice(); }, set points(v) { pts = v.filter(validPt); renderAll(); }, setDrawing: setDrawing };
+    get points() { return pts.slice(); }, set points(v) { pts = v.filter(validPt); renderAll(); }, setDrawing: setDrawing,
+    setNoting: setNoting, addNoteAt: addNoteAt, get notes() { return JSON.parse(JSON.stringify(rs.notes)); }, capture: capture };
 })();
