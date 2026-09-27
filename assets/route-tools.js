@@ -65,7 +65,6 @@
     }
     return out;
   }
-  function midpoint(a, b) { var g = gcPoints(a, b); return g[Math.floor(g.length / 2)]; }
   var PERIOD = 360 * D * P.K;
   function pathXY(lls) {                                          // 이웃 점과 가까운 쪽으로 이어 붙여 반대편으로 튀지 않게
     var out = [], prev = null;
@@ -85,6 +84,52 @@
     return all;
   }
   function totalKm(pts) { var s = 0; for (var i = 0; i + 1 < pts.length; i++) s += distKm(pts[i], pts[i + 1]); return s; }
+
+  // 모든 점을 지나는 하나의 매끄러운 곡선 (구심 Catmull-Rom 을 지구 표면(3차원 단위벡터)에서 계산)
+  // 반환: line = 50 km 이하 간격의 곡선 점들, segKm = 웨이포인트 사이 곡선 길이, start = 각 구간이 시작하는 line 인덱스
+  function unit(v) { var n = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / n, v[1] / n, v[2] / n]; }
+  function toLatLon(q) { return [Math.atan2(q[2], Math.hypot(q[0], q[1])) / D, Math.atan2(q[1], q[0]) / D]; }
+  function lerp3(a, b, ta, tb, t) {
+    var w = tb - ta < 1e-12 ? 0 : (t - ta) / (tb - ta);
+    return [a[0] + (b[0] - a[0]) * w, a[1] + (b[1] - a[1]) * w, a[2] + (b[2] - a[2]) * w];
+  }
+  function smoothCurve(pts) {
+    var n = pts.length;
+    if (n < 3) {                                                    // 두 점이면 대권 그대로
+      var g = n === 2 ? gcPoints(pts[0], pts[1]) : pts.slice();
+      return { line: g, segKm: n === 2 ? [distKm(pts[0], pts[1])] : [], start: [0, g.length - 1] };
+    }
+    var V = pts.map(vec);
+    var e0 = unit([2 * V[0][0] - V[1][0], 2 * V[0][1] - V[1][1], 2 * V[0][2] - V[1][2]]);          // 양 끝 연장점
+    var eN = unit([2 * V[n - 1][0] - V[n - 2][0], 2 * V[n - 1][1] - V[n - 2][1], 2 * V[n - 1][2] - V[n - 2][2]]);
+    var line = [], segKm = [], start = [];
+    for (var i = 0; i + 1 < n; i++) {
+      var p0 = i ? V[i - 1] : e0, p1 = V[i], p2 = V[i + 1], p3 = i + 2 < n ? V[i + 2] : eN;
+      var d = function (a, b) { return Math.pow(Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]), 0.5) || 1e-6; };
+      var t0 = 0, t1 = t0 + d(p0, p1), t2 = t1 + d(p1, p2), t3 = t2 + d(p2, p3);
+      var m = Math.max(2, Math.ceil(distKm(pts[i], pts[i + 1]) * 1.25 / SEG_KM)), seg, len;
+      for (var tries = 0; tries < 4; tries++) {                     // 한 칸이 50 km 를 넘지 않을 때까지 촘촘히
+        seg = []; len = 0; var maxStep = 0;
+        for (var j = 0; j <= m; j++) {
+          var t = t1 + (t2 - t1) * j / m;
+          var A1 = lerp3(p0, p1, t0, t1, t), A2 = lerp3(p1, p2, t1, t2, t), A3 = lerp3(p2, p3, t2, t3, t);
+          var B1 = lerp3(A1, A2, t0, t2, t), B2 = lerp3(A2, A3, t1, t3, t);
+          var q = toLatLon(unit(lerp3(B1, B2, t1, t2, t)));
+          if (j === 0) q = pts[i].slice(); if (j === m) q = pts[i + 1].slice();      // 웨이포인트를 정확히 지나게
+          if (seg.length) { var k = distKm(seg[seg.length - 1], q); len += k; maxStep = Math.max(maxStep, k); }
+          seg.push(q);
+        }
+        if (maxStep <= SEG_KM) break;
+        m = Math.ceil(m * maxStep / SEG_KM) + 1;
+      }
+      start.push(line.length ? line.length - 1 : 0);
+      line = line.concat(line.length ? seg.slice(1) : seg);
+      segKm.push(len);
+    }
+    start.push(line.length - 1);
+    return { line: line, segKm: segKm, start: start };
+  }
+  function curveKm(c) { return c.segKm.reduce(function (a, b) { return a + b; }, 0); }
 
   // ------------------------------------------------------------------ 표시 형식
   function comma(n) { return n.toLocaleString('en-US'); }
@@ -118,11 +163,18 @@
     '.rt-sec h2{font-size:14px;font-weight:600;margin:0 0 6px;display:flex;align-items:center;gap:8px}',
     '.rt-sec h2 label{flex:1;cursor:pointer;display:flex;align-items:center;gap:10px}',
     '.rt-sec input[type=checkbox]{width:16px;height:16px;accent-color:var(--magenta);margin:0}',
-    '.rt-route{display:flex;gap:8px;align-items:flex-start;margin:6px 0 0 26px;font-size:12.5px}',
+    '.rt-route{display:flex;gap:8px;align-items:flex-start;margin:8px 0 0;font-size:12.5px}',
+    '.rt-route > div{flex:1;min-width:0}',
+    '.rt-route input{margin-top:3px!important}',
+    '.rt-badge{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 4px;border-radius:5px;color:#fff;font-size:11px;font-weight:700;margin-right:4px}',
+    '.rt-del{flex:none;font:inherit;font-size:12px;min-height:28px;padding:0 9px;border-radius:7px;border:1px solid var(--rule);background:transparent;color:var(--ink);cursor:pointer}',
+    '.rt-del:hover{border-color:#B42318;color:#B42318}',
+    '.rt-link{font:inherit;font-size:12px;color:var(--magenta);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline}',
     '.rt-route .ln{flex:none;width:26px;height:0;margin-top:9px;border-top:3px solid}',
     '.rt-route .ln.dash{border-top-style:dashed}',
     '.rt-route b{font-weight:600}',
     '.rt-route span{color:var(--muted)}',
+    '.rt-route .rt-badge{color:#fff}',
     '.rt-help{font-size:12px;color:var(--muted);margin:4px 0 8px}',
     '.rt-btns{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}',
     '.rt-btns button{font:inherit;font-size:12.5px;min-height:32px;padding:0 10px;border-radius:7px;border:1px solid var(--rule);background:transparent;color:var(--ink);cursor:pointer}',
@@ -154,49 +206,6 @@
   var notes = aside.querySelector('.notes');
   function insertSection(el) { aside.insertBefore(el, notes || null); }
 
-  function drawRoute(route) {
-    var pts = route.points || route.great_circle || [];
-    var line = pathXY(routeLine(pts));
-    var dash = route.style === 'dash' ? ';stroke-dasharray:calc(10px / var(--s,1)) calc(6px / var(--s,1))' : '';
-    var h = '<polyline points="' + pts2str(line) + '" fill="none" stroke="#fff" stroke-opacity=".75" stroke-linejoin="round" stroke-linecap="round" style="stroke-width:calc(5px / var(--s,1))' + dash + '"/>' +
-            '<polyline points="' + pts2str(line) + '" fill="none" stroke="' + esc(route.color) + '" stroke-linejoin="round" stroke-linecap="round" style="stroke-width:calc(2.6px / var(--s,1))' + dash + '"/>';
-    var last = line[line.length - 1], mid = line[Math.floor(line.length / 2)];
-    h += '<g style="' + at(mid[0], mid[1]) + '"><text y="-8" text-anchor="middle" font-size="12" font-weight="700" fill="' + esc(route.color) +
-         '" stroke="#fff" stroke-width="3" paint-order="stroke">' + esc(route.id) + '</text></g>';
-    return h;
-  }
-  function setupSuggest(data) {
-    var routes = (data && data.routes) || [];
-    if (!routes.length) return;
-    sugSvg.innerHTML = routes.map(drawRoute).join('');
-    var sec = document.createElement('div');
-    sec.className = 'rt-sec';
-    sec.innerHTML = '<h2><label><input type="checkbox" id="rt-sug-on" checked>제안 항로</label></h2>' +
-      routes.map(function (r) {
-        var km = totalKm(r.points || r.great_circle);
-        return '<div class="rt-route"><i class="ln' + (r.style === 'dash' ? ' dash' : '') + '" style="border-color:' + esc(r.color) + '"></i>' +
-          '<div><b>' + esc(r.id) + ' ' + esc(r.name) + '</b><br>총 ' + fmtPair(km) +
-          (r.note ? '<br><span>' + esc(r.note) + '</span>' : '') + '</div></div>';
-      }).join('');
-    var firstLayer = aside.querySelector('.layer');
-    aside.insertBefore(sec, firstLayer || notes || null);
-    var box = sec.querySelector('#rt-sug-on');
-    var chips = document.getElementById('chips'), chip = null;
-    if (chips) {
-      chip = document.createElement('button');
-      chip.type = 'button'; chip.setAttribute('aria-pressed', 'true'); chip.title = '제안 항로 켜기·끄기';
-      chip.innerHTML = '<span class="d" style="background:' + esc(routes[0].color) + '"></span>제안 항로';
-      chip.onclick = function () { box.checked = !box.checked; box.dispatchEvent(new Event('change')); };
-      chips.insertBefore(chip, chips.firstChild);
-    }
-    box.addEventListener('change', function () {
-      sugSvg.style.display = box.checked ? '' : 'none';
-      if (chip) chip.setAttribute('aria-pressed', box.checked);
-    });
-  }
-  fetch('routes.json', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; })
-    .then(setupSuggest).catch(function () {});
-
   // ------------------------------------------------------------------ 2. 항로 그리기·거리 측정
   var pts = [];                                                    // [[lat, lon], ...]
   try { var saved = JSON.parse(localStorage.getItem(KEY) || 'null'); if (Array.isArray(saved)) pts = saved.filter(validPt); } catch (e) {}
@@ -207,19 +216,24 @@
   drawSvg.appendChild(linesG); drawSvg.appendChild(wpsG);
   var DRAW = '#D9480F';
 
+  var curve = smoothCurve([]);
   function renderLines() {
-    var h = '';
-    if (pts.length > 1) {
-      var line = pts2str(pathXY(routeLine(pts)));
-      h += '<polyline points="' + line + '" fill="none" stroke="#fff" stroke-opacity=".85" stroke-linejoin="round" stroke-linecap="round" style="stroke-width:calc(5.5px / var(--s,1))"/>' +
-           '<polyline points="' + line + '" fill="none" stroke="' + DRAW + '" stroke-linejoin="round" stroke-linecap="round" style="stroke-width:calc(2.8px / var(--s,1))"/>';
-      for (var i = 0; i + 1 < pts.length; i++) {
-        var seg = pathXY(gcPoints(pts[i], pts[i + 1])), m = seg[Math.floor(seg.length / 2)];   // 구간 중간
-        h += '<g style="' + at(m[0], m[1]) + '"><text y="-7" text-anchor="middle" font-size="11.5" font-weight="700" fill="' + DRAW +
-             '" stroke="#fff" stroke-width="3.2" paint-order="stroke">' + fmtPair(distKm(pts[i], pts[i + 1])) + '</text></g>';
-      }
-    }
-    linesG.innerHTML = h;
+    curve = smoothCurve(pts);
+    linesG.innerHTML = pts.length > 1 ? curveSvg(curve.line, DRAW, false, '총 ' + fmtPair(curveKm(curve))) : '';
+  }
+  function curveSvg(line, color, dash, endLabel, badge, yOff) {       // 곡선 + 끝점 라벨(전체 거리 한 번)
+    var xy = pathXY(line), str = pts2str(xy);
+    var ds = dash ? ';stroke-dasharray:calc(10px / var(--s,1)) calc(6px / var(--s,1))' : '';
+    var h = '<polyline points="' + str + '" fill="none" stroke="#fff" stroke-opacity=".8" stroke-linejoin="round" stroke-linecap="round" style="stroke-width:calc(5.5px / var(--s,1))' + ds + '"/>' +
+            '<polyline points="' + str + '" fill="none" stroke="' + esc(color) + '" stroke-linejoin="round" stroke-linecap="round" style="stroke-width:calc(2.8px / var(--s,1))' + ds + '"/>';
+    var e = xy[xy.length - 1], pv = xy[Math.max(0, xy.length - 4)];
+    var right = e[0] >= pv[0];                                      // 곡선이 끝나는 방향 바깥쪽에 라벨
+    if (e[0] > P.W * 0.72) right = false;                           // 지도 가장자리 근처면 안쪽으로
+    else if (e[0] < P.W * 0.28) right = true;
+    h += '<g style="' + at(e[0], e[1]) + '"><text x="' + (right ? 10 : -10) + '" y="' + (16 + (yOff || 0)) + '" text-anchor="' + (right ? 'start' : 'end') +
+         '" font-size="12" font-weight="700" fill="' + esc(color) + '" stroke="#fff" stroke-width="3.4" paint-order="stroke">' +
+         (badge ? esc(badge) + ' · ' : '') + endLabel + '</text></g>';
+    return h;
   }
   function wpTransform(i) { var xy = toXY(pts[i][0], pts[i][1]); return at(xy[0], xy[1]); }
   function renderWps() {
@@ -236,19 +250,20 @@
   sec.className = 'rt-sec';
   sec.id = 'rt-panel';
   sec.innerHTML = '<h2>항로 그리기·거리 측정</h2>' +
-    '<p class="rt-help">오른쪽 위 연필 버튼(또는 <kbd>M</kbd>)으로 켜고 지도를 눌러 점을 찍습니다. 점은 끌어서 옮기고, 우클릭(모바일은 길게 누르기)으로 지웁니다. <kbd>Backspace</kbd> 마지막 점 취소 · <kbd>Esc</kbd> 그리기 끝.</p>' +
+    '<p class="rt-help">오른쪽 위 연필 버튼(또는 <kbd>M</kbd>)으로 켜고 지도를 눌러 점을 찍으면, 모든 점을 지나는 하나의 곡선으로 이어집니다. 점은 끌어서 옮기고, 우클릭(모바일은 길게 누르기)으로 지웁니다. <kbd>Backspace</kbd> 마지막 점 취소 · <kbd>Esc</kbd> 그리기 끝. 다 그리면 <b>제안 항로로 추가</b>로 A·B·C… 항로로 저장합니다.</p>' +
     '<div class="rt-btns"><button type="button" id="rt-toggle2">그리기 켜기</button><button type="button" id="rt-clear">전체 지우기</button>' +
-    '<button type="button" id="rt-json">JSON 내보내기</button><button type="button" id="rt-csv">CSV 내보내기</button>' +
+    '<button type="button" id="rt-save">제안 항로로 추가</button><button type="button" id="rt-json">JSON 내보내기</button><button type="button" id="rt-csv">CSV 내보내기</button>' +
     '<button type="button" id="rt-load">JSON 불러오기</button><input type="file" id="rt-file" accept=".json,application/json" hidden></div>' +
     '<div id="rt-table"></div>';
   insertSection(sec);
 
-  function rows() {
-    var out = [], cum = 0;
+  function rows() {                                               // 구간 거리·누적은 그려진 곡선을 따라 잰 길이
+    var out = [], cum = 0, c = smoothCurve(pts);
     pts.forEach(function (p, i) {
-      var seg = i ? distKm(pts[i - 1], p) : null;
+      var seg = i ? c.segKm[i - 1] : null, s0 = i ? c.start[i - 1] : 0;
       if (seg != null) cum += seg;
-      out.push({ n: i + 1, lat: p[0], lon: wrap180(p[1]), seg: seg, cum: i ? cum : null, brg: i ? bearing(pts[i - 1], p) : null });
+      out.push({ n: i + 1, lat: p[0], lon: wrap180(p[1]), seg: seg, cum: i ? cum : null,
+                 brg: i ? bearing(c.line[s0], c.line[s0 + 1]) : null });
     });
     return out;
   }
@@ -262,7 +277,7 @@
         return '<tr><td>' + r.n + '</td><td>' + fmtLat(r.lat) + '</td><td>' + fmtLon(r.lon) + '</td><td>' + two(r.seg) + '</td><td>' + two(r.cum) +
           '</td><td>' + (r.brg == null ? '–' : String(Math.round(r.brg) % 360).padStart(3, '0') + '°') + '</td></tr>';
       }).join('') +
-      '</tbody><tfoot><tr><td colspan="3" style="text-align:left">총거리 (' + pts.length + '점)</td><td colspan="3">' + fmtPair(totalKm(pts)) + '</td></tr></tfoot></table>';
+      '</tbody><tfoot><tr><td colspan="3" style="text-align:left">총거리 (' + pts.length + '점)</td><td colspan="3">' + fmtPair(curveKm(smoothCurve(pts))) + '</td></tr></tfoot></table>';
     updateStatus(); syncButtons();
   }
 
@@ -293,9 +308,10 @@
     var t = document.getElementById('rt-toggle2');
     if (t) { t.textContent = drawing ? '그리기 끄기' : '그리기 켜기'; t.classList.toggle('on', drawing); }
     ['rt-clear', 'rt-json', 'rt-csv'].forEach(function (id) { var b = document.getElementById(id); if (b) b.disabled = !pts.length; });
+    var sv = document.getElementById('rt-save'); if (sv) sv.disabled = pts.length < 2;
   }
   function updateStatus() {
-    status.innerHTML = '<b>항로 그리기</b> · 지도를 눌러 점 추가 · ' + pts.length + '점' + (pts.length > 1 ? ' · 총 ' + fmtPair(totalKm(pts)) : '');
+    status.innerHTML = '<b>항로 그리기</b> · 지도를 눌러 점 추가 · ' + pts.length + '점' + (pts.length > 1 ? ' · 총 ' + fmtPair(curveKm(smoothCurve(pts))) : '');
   }
   btn.addEventListener('click', function () { setDrawing(!drawing); });
   document.getElementById('rt-toggle2').onclick = function () { setDrawing(!drawing); };
@@ -420,7 +436,107 @@
     rd.readAsText(f);
   });
 
+  // ------------------------------------------------------------------ 1. 제안 항로 A·B·C·D… (추가·켜기/끄기·삭제)
+  var RKEY = KEY + ':routes', LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  var PALETTE = ['#6B2FB3', '#1F4E8C', '#0F8B6C', '#C2410C', '#B8860B', '#BE185D', '#0E7490', '#4D7C0F'];
+  var baseRoutes = [], rs = { user: [], removed: [], hidden: [] };
+  try {
+    var rv = JSON.parse(localStorage.getItem(RKEY) || 'null');
+    if (rv && typeof rv === 'object') {
+      rs.user = (rv.user || []).filter(function (r) { return r && r.id && Array.isArray(r.points) && r.points.filter(validPt).length > 1; });
+      rs.removed = Array.isArray(rv.removed) ? rv.removed : [];
+      rs.hidden = Array.isArray(rv.hidden) ? rv.hidden : [];
+    }
+  } catch (e) {}
+  function saveRoutes() { try { localStorage.setItem(RKEY, JSON.stringify(rs)); } catch (e) {} }
+  function allRoutes() {
+    return baseRoutes.filter(function (r) { return rs.removed.indexOf(r.id) < 0; }).concat(rs.user)
+      .sort(function (a, b) { return a.id.length - b.id.length || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0); });
+  }
+  function nextLetter() {                                         // 비어 있는 첫 글자 (지운 기본 항로 글자는 복원을 위해 비워 둠)
+    var used = baseRoutes.map(function (r) { return r.id; }).concat(rs.user.map(function (r) { return r.id; }));
+    for (var i = 0; i < LETTERS.length; i++) if (used.indexOf(LETTERS[i]) < 0) return LETTERS[i];
+    for (var k = 1; ; k++) if (used.indexOf('R' + k) < 0) return 'R' + k;
+  }
+  function colorOf(id) { var i = LETTERS.indexOf(id); return PALETTE[(i < 0 ? 0 : i) % PALETTE.length]; }
+  function routeLL(r) {
+    if (r.great_circle) return gcPoints(r.great_circle[0], r.great_circle[1]);
+    return r.smooth ? smoothCurve(r.points).line : routeLine(r.points);
+  }
+  function routeKm(r) {
+    if (r.great_circle) return distKm(r.great_circle[0], r.great_circle[1]);
+    return r.smooth ? curveKm(smoothCurve(r.points)) : totalKm(r.points);
+  }
+
+  var sugSec = document.createElement('div');
+  sugSec.className = 'rt-sec'; sugSec.id = 'rt-sug';
+  sugSec.innerHTML = '<h2><label><input type="checkbox" id="rt-sug-on" checked>제안 항로</label></h2><div id="rt-sug-list"></div>';
+  aside.insertBefore(sugSec, aside.querySelector('.layer') || notes || null);
+  var sugOn = sugSec.querySelector('#rt-sug-on'), sugChip = null, chipsBox = document.getElementById('chips');
+  if (chipsBox) {
+    sugChip = document.createElement('button');
+    sugChip.type = 'button'; sugChip.setAttribute('aria-pressed', 'true'); sugChip.title = '제안 항로 전체 켜기·끄기';
+    sugChip.innerHTML = '<span class="d" style="background:#6B2FB3"></span>제안 항로';
+    sugChip.onclick = function () { sugOn.checked = !sugOn.checked; sugOn.dispatchEvent(new Event('change')); };
+    chipsBox.insertBefore(sugChip, chipsBox.firstChild);
+  }
+  sugOn.addEventListener('change', function () {
+    sugSvg.style.display = sugOn.checked ? '' : 'none';
+    if (sugChip) sugChip.setAttribute('aria-pressed', sugOn.checked);
+  });
+
+  function renderRoutes() {
+    var list = allRoutes(), shown = list.filter(function (r) { return rs.hidden.indexOf(r.id) < 0; });
+    // 같은 곳에서 끝나는 항로 라벨이 겹치지 않게 순서대로 한 줄씩 내림
+    sugSvg.innerHTML = shown.map(function (r, k) {
+      return curveSvg(routeLL(r), r.color || colorOf(r.id), r.style === 'dash', fmtPair(routeKm(r)), r.id, k * 16);
+    }).join('');
+    var box = document.getElementById('rt-sug-list');
+    box.innerHTML = (list.length ? list.map(function (r) {
+      var c = r.color || colorOf(r.id), on = rs.hidden.indexOf(r.id) < 0;
+      return '<div class="rt-route"><input type="checkbox" data-show="' + esc(r.id) + '"' + (on ? ' checked' : '') + ' aria-label="' + esc(r.id) + ' 표시">' +
+        '<i class="ln' + (r.style === 'dash' ? ' dash' : '') + '" style="border-color:' + esc(c) + '"></i>' +
+        '<div><b><span class="rt-badge" style="background:' + esc(c) + '">' + esc(r.id) + '</span>' + esc(r.name) + '</b><br>총 ' + fmtPair(routeKm(r)) +
+        (r.smooth ? ' <span>(' + r.points.length + '점 곡선)</span>' : '') + '</div>' +
+        '<button type="button" class="rt-del" data-del="' + esc(r.id) + '" aria-label="' + esc(r.id) + ' ' + esc(r.name) + ' 삭제">삭제</button></div>';
+    }).join('') : '<div class="rt-empty">제안 항로가 없습니다. 아래에서 항로를 그린 뒤 <b>제안 항로로 추가</b>를 누르세요.</div>') +
+      (rs.removed.some(function (id) { return baseRoutes.some(function (r) { return r.id === id; }); })
+        ? '<p class="rt-help"><button type="button" class="rt-link" id="rt-restore">삭제한 기본 항로 되살리기</button></p>' : '');
+    var rb = document.getElementById('rt-restore');
+    if (rb) rb.onclick = function () { rs.removed = []; saveRoutes(); renderRoutes(); };
+  }
+  sugSec.addEventListener('change', function (e) {
+    var id = e.target.getAttribute && e.target.getAttribute('data-show'); if (!id) return;
+    rs.hidden = rs.hidden.filter(function (x) { return x !== id; });
+    if (!e.target.checked) rs.hidden.push(id);
+    saveRoutes(); renderRoutes();
+  });
+  sugSec.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-del]'); if (!b) return;
+    var id = b.getAttribute('data-del'), r = allRoutes().filter(function (x) { return x.id === id; })[0]; if (!r) return;
+    if (!window.confirm('제안 항로 ' + id + ' (' + r.name + ')를 삭제할까요?')) return;
+    if (rs.user.some(function (x) { return x.id === id; })) rs.user = rs.user.filter(function (x) { return x.id !== id; });
+    else rs.removed.push(id);
+    rs.hidden = rs.hidden.filter(function (x) { return x !== id; });
+    saveRoutes(); renderRoutes();
+  });
+  document.getElementById('rt-save').onclick = function () {
+    if (pts.length < 2) return;
+    var id = nextLetter(), name = window.prompt('제안 항로 ' + id + '의 이름', '제안 항로 ' + id);
+    if (name === null) return;                                     // 취소
+    rs.user.push({ id: id, name: (name || '제안 항로 ' + id).slice(0, 40), color: colorOf(id), style: 'solid', smooth: true,
+                   points: pts.map(function (p) { return [+p[0].toFixed(5), +p[1].toFixed(5)]; }) });
+    rs.hidden = rs.hidden.filter(function (x) { return x !== id; });
+    saveRoutes(); pts = []; renderAll(); renderRoutes();
+    if (!sugOn.checked) { sugOn.checked = true; sugOn.dispatchEvent(new Event('change')); }
+  };
+  fetch('routes.json', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) { baseRoutes = ((d && d.routes) || []).filter(function (r) { return r && r.id; }); renderRoutes(); })
+    .catch(function () { renderRoutes(); });
+  renderRoutes();
+
   renderAll();
   window.ROUTE_TOOLS = { distKm: distKm, bearing: bearing, gcPoints: gcPoints, totalKm: totalKm, pathXY: pathXY,
+    get routes() { return allRoutes(); }, curveKm: function (p) { return curveKm(smoothCurve(p)); },
     get points() { return pts.slice(); }, set points(v) { pts = v.filter(validPt); renderAll(); }, setDrawing: setDrawing };
 })();
