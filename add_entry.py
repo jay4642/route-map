@@ -124,12 +124,18 @@ def layer_tags(html):
     return [LAYER_TAGS[i] for i in ids if i in LAYER_TAGS]
 
 
+ROUTE_TOOLS_TAG = '<script src="../../assets/route-tools.js" defer></script>'
+
+
 def inject_nav(html, entry_id):
-    if NAV_MARK in html:
-        return html
-    nav = NAV_TEMPLATE.format(mark=NAV_MARK, id=entry_id)
-    idx = html.lower().rfind("</body>")
-    return html + nav if idx < 0 else html[:idx] + nav + html[idx:]
+    def before_body(h, piece):
+        idx = h.lower().rfind("</body>")
+        return h + piece if idx < 0 else h[:idx] + piece + h[idx:]
+    if NAV_MARK not in html:
+        html = before_body(html, NAV_TEMPLATE.format(mark=NAV_MARK, id=entry_id))
+    if "assets/route-tools.js" not in html:                    # 제안 항로·항로 그리기 도구 (한 줄)
+        html = before_body(html, ROUTE_TOOLS_TAG + "\n")
+    return html
 
 
 def composite_from_html(html):
@@ -235,6 +241,8 @@ def main():
     (dest / "sources").mkdir(parents=True)
 
     (dest / "index.html").write_text(inject_nav(html, entry_id), encoding="utf-8")
+    if (INBOX / "routes.json").exists():                        # 제안 항로 (build_overlay.py 가 만듦)
+        shutil.copy2(INBOX / "routes.json", dest / "routes.json")
 
     if composite_src is None:
         full = generated

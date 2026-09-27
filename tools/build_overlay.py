@@ -663,6 +663,20 @@ def load_source(s):
     return img, alpha, valid
 
 
+def write_routes(cfg, out):
+    """제안 항로(routes.json): config 의 proposed_routes + 출발·도착 공항 사이 대권."""
+    routes = list(cfg.get("proposed_routes", []))
+    for s in cfg["sources"]:
+        for lay in s["layers"]:
+            aps = lay.get("airports") if lay.get("kind") == "track" else None
+            if aps and len(aps) >= 2:
+                (c1, la1, lo1), (c2, la2, lo2) = aps[0], aps[-1]
+                routes.append({"id": "B", "name": f"대권 경로 ({c1}→{c2})", "color": "#1F4E8C",
+                               "style": "dash", "great_circle": [[la1, lo1], [la2, lo2]]})
+    if routes:
+        (out / "routes.json").write_text(json.dumps({"routes": routes}, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+
+
 def main(cfg_path):
     cfg = json.loads(Path(cfg_path).read_text(encoding="utf-8"))
     F = Frame(cfg["frame"])
@@ -753,6 +767,7 @@ def main(cfg_path):
                 .replace("{{Y0}}", repr(F.Y0)))
     assert "{{" not in page
     (out / "map.html").write_text(page, encoding="utf-8")
+    write_routes(cfg, out)
     print(f"완료: {out}/map.html ({len(page) // 1024} KB), composite.png")
 
 
