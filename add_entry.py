@@ -26,7 +26,7 @@ INBOX = ROOT / "inbox"
 ENTRIES_DIR = ROOT / "entries"
 ENTRIES_JSON = ROOT / "entries.json"
 LATEST = ROOT / "latest" / "index.html"
-IMAGE_EXT = {".png", ".jpg", ".jpeg"}
+IMAGE_EXT = {".png", ".jpg", ".jpeg", ".webp"}
 THUMB_WIDTH = 800
 NAV_MARK = "route-map-archive-nav"
 
@@ -252,8 +252,10 @@ def main():
     for p in images:
         if p == composite_src:
             continue
-        shutil.copy2(p, dest / "sources" / p.name)
-        sources.append(f"entries/{entry_id}/sources/{p.name}")
+        out = dest / "sources" / (p.stem + ".webp")            # 원본 캡처는 WebP(품질 95)로 가볍게 보관
+        with Image.open(p) as im:
+            im.convert("RGB").save(out, "WEBP", quality=95, method=6)
+        sources.append(f"entries/{entry_id}/sources/{out.name}")
 
     base = f"entries/{entry_id}"
     entries.append({

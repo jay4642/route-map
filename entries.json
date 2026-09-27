@@ -9,11 +9,11 @@
     "composite": "entries/2026-09-24_0745Z/composite.webp",
     "thumb": "entries/2026-09-24_0745Z/thumb.jpg",
     "sources": [
-      "entries/2026-09-24_0745Z/sources/awc_sigmet.png",
-      "entries/2026-09-24_0745Z/sources/fr24_BA172.png",
-      "entries/2026-09-24_0745Z/sources/swpc_aurora.png",
-      "entries/2026-09-24_0745Z/sources/ventusky_radar.png",
-      "entries/2026-09-24_0745Z/sources/ventusky_wind200hpa.png"
+      "entries/2026-09-24_0745Z/sources/awc_sigmet.webp",
+      "entries/2026-09-24_0745Z/sources/fr24_BA172.webp",
+      "entries/2026-09-24_0745Z/sources/swpc_aurora.webp",
+      "entries/2026-09-24_0745Z/sources/ventusky_radar.webp",
+      "entries/2026-09-24_0745Z/sources/ventusky_wind200hpa.webp"
     ],
     "round": 5,
     "tags": [
@@ -37,11 +37,11 @@
     "composite": "entries/2026-09-23_1333Z/composite.webp",
     "thumb": "entries/2026-09-23_1333Z/thumb.jpg",
     "sources": [
-      "entries/2026-09-23_1333Z/sources/awc_sigmet.png",
-      "entries/2026-09-23_1333Z/sources/fr24_OZ222.png",
-      "entries/2026-09-23_1333Z/sources/swpc_aurora.png",
-      "entries/2026-09-23_1333Z/sources/ventusky_radar.png",
-      "entries/2026-09-23_1333Z/sources/ventusky_wind200hpa.png"
+      "entries/2026-09-23_1333Z/sources/awc_sigmet.webp",
+      "entries/2026-09-23_1333Z/sources/fr24_OZ222.webp",
+      "entries/2026-09-23_1333Z/sources/swpc_aurora.webp",
+      "entries/2026-09-23_1333Z/sources/ventusky_radar.webp",
+      "entries/2026-09-23_1333Z/sources/ventusky_wind200hpa.webp"
     ],
     "round": 4,
     "tags": [
@@ -65,10 +65,10 @@
     "composite": "entries/2026-09-24_1502Z/composite.webp",
     "thumb": "entries/2026-09-24_1502Z/thumb.jpg",
     "sources": [
-      "entries/2026-09-24_1502Z/sources/awc_sigmet.png",
-      "entries/2026-09-24_1502Z/sources/fr24_SQ308.png",
-      "entries/2026-09-24_1502Z/sources/ventusky_radar.png",
-      "entries/2026-09-24_1502Z/sources/ventusky_wind200hpa.png"
+      "entries/2026-09-24_1502Z/sources/awc_sigmet.webp",
+      "entries/2026-09-24_1502Z/sources/fr24_SQ308.webp",
+      "entries/2026-09-24_1502Z/sources/ventusky_radar.webp",
+      "entries/2026-09-24_1502Z/sources/ventusky_wind200hpa.webp"
     ],
     "round": 3,
     "tags": [
@@ -91,10 +91,10 @@
     "composite": "entries/2026-09-23_1756Z/composite.webp",
     "thumb": "entries/2026-09-23_1756Z/thumb.jpg",
     "sources": [
-      "entries/2026-09-23_1756Z/sources/awc_sigmet.png",
-      "entries/2026-09-23_1756Z/sources/fr24_AA118.png",
-      "entries/2026-09-23_1756Z/sources/ventusky_radar.png",
-      "entries/2026-09-23_1756Z/sources/ventusky_wind200hpa.png"
+      "entries/2026-09-23_1756Z/sources/awc_sigmet.webp",
+      "entries/2026-09-23_1756Z/sources/fr24_AA118.webp",
+      "entries/2026-09-23_1756Z/sources/ventusky_radar.webp",
+      "entries/2026-09-23_1756Z/sources/ventusky_wind200hpa.webp"
     ],
     "round": 2,
     "tags": [
@@ -117,10 +117,10 @@
     "composite": "entries/2026-09-23_1130Z/composite.webp",
     "thumb": "entries/2026-09-23_1130Z/thumb.jpg",
     "sources": [
-      "entries/2026-09-23_1130Z/sources/awc_sigmet.png",
-      "entries/2026-09-23_1130Z/sources/fr24_EK1.png",
-      "entries/2026-09-23_1130Z/sources/ventusky_radar.png",
-      "entries/2026-09-23_1130Z/sources/ventusky_wind200hpa.png"
+      "entries/2026-09-23_1130Z/sources/awc_sigmet.webp",
+      "entries/2026-09-23_1130Z/sources/fr24_EK1.webp",
+      "entries/2026-09-23_1130Z/sources/ventusky_radar.webp",
+      "entries/2026-09-23_1130Z/sources/ventusky_wind200hpa.webp"
     ],
     "round": 1,
     "tags": [
