@@ -2,3 +2,4 @@ inbox/
 .DS_Store
 __pycache__/
 .claude/
+report_images/
